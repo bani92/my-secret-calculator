@@ -2,7 +2,7 @@
   <main class="app-shell">
     <header class="app-header">
       <div>
-        <p class="eyebrow">개인 기록장</p>
+        <p class="eyebrow">개인 기록용</p>
         <h1>로컬 가계부</h1>
       </div>
       <p class="header-note">빠른 입력을 먼저 준비하고 있어요.</p>
@@ -25,25 +25,10 @@
     <section class="placeholder-layout" aria-live="polite">
       <section class="input-panel">
         <div class="section-heading">
-          <span>{{ activeTabLabel }}</span>
+          <span>{{ activeLabel }}</span>
           <h2>{{ activePanel.title }}</h2>
         </div>
-
-        <form class="placeholder-form">
-          <label>
-            날짜
-            <input type="date" disabled />
-          </label>
-          <label>
-            금액
-            <input type="text" inputmode="numeric" placeholder="0" disabled />
-          </label>
-          <label>
-            메모
-            <input type="text" placeholder="다음 작업에서 연결됩니다" disabled />
-          </label>
-          <button type="button" disabled>기록 준비 중</button>
-        </form>
+        <p>{{ activePanel.description }}</p>
       </section>
 
       <section class="preview-panel">
@@ -82,25 +67,28 @@ const tabs: Array<{ id: TabId; label: string }> = [
   { id: 'people', label: '사람' }
 ];
 
-const panelCopy: Record<TabId, { title: string; emptyTitle: string; emptyText: string }> = {
+const panels: Record<TabId, { title: string; description: string; emptyTitle: string; emptyText: string }> = {
   input: {
     title: '빠른 기록 영역',
+    description: '다음 작업에서 날짜, 항목, 금액, 메모 입력을 연결합니다.',
     emptyTitle: '아직 입력 기능은 연결되지 않았습니다',
-    emptyText: '다음 작업에서 월별 수입과 지출 기록을 이 화면에 연결합니다.'
+    emptyText: '월별 수입과 지출 기록은 도메인 로직을 추가한 뒤 이 화면에 붙입니다.'
   },
   dashboard: {
-    title: '요약 미리보기',
-    emptyTitle: '대시보드 자리만 준비했습니다',
-    emptyText: '월별 합계, 카테고리 합계, 사람별 미정산 요약이 여기에 들어옵니다.'
+    title: '월별 요약 영역',
+    description: '수입, 지출, 남은 금액, 카테고리별 합계를 보여줄 자리입니다.',
+    emptyTitle: '대시보드 자리를 준비했습니다',
+    emptyText: '월별 합계와 사람별 미정산 요약은 계산 로직을 추가한 뒤 표시합니다.'
   },
   people: {
     title: '사람별 기록 영역',
-    emptyTitle: '사람 탭의 뼈대를 만들었습니다',
-    emptyText: '받을 돈과 갚을 돈 기록은 도메인 로직이 추가된 뒤 연결됩니다.'
+    description: '사람별로 받을 돈과 갚을 돈을 기록할 자리입니다.',
+    emptyTitle: '사람 탭의 기본 구조를 만들었습니다',
+    emptyText: '정산 완료 후에도 거래 기록은 남도록 이후 작업에서 연결합니다.'
   }
 };
 
 const activeTab = ref<TabId>('input');
-const activePanel = computed(() => panelCopy[activeTab.value]);
-const activeTabLabel = computed(() => tabs.find((tab) => tab.id === activeTab.value)?.label ?? '');
+const activePanel = computed(() => panels[activeTab.value]);
+const activeLabel = computed(() => tabs.find((tab) => tab.id === activeTab.value)?.label ?? '');
 </script>
