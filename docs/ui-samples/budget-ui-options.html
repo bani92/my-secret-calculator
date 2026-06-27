@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>로컬 가계부 UI 색상 시안</title>
+    <style>
+      :root {
+        color: #20242a;
+        background: #f4f2ee;
+        font-family: Pretendard, Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+      }
+
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+
+      .page {
+        min-height: 100vh;
+        padding: 28px;
+      }
+
+      .intro {
+        max-width: 1180px;
+        margin: 0 auto 22px;
+      }
+
+      .intro h1 {
+        margin: 0 0 8px;
+        font-size: 1.9rem;
+      }
+
+      .intro p {
+        margin: 0;
+        color: #667085;
+        line-height: 1.6;
+      }
+
+      .samples {
+        display: grid;
+        gap: 24px;
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .sample {
+        --bg: #f7f4ef;
+        --surface: #ffffff;
+        --surface-strong: #f0f4f3;
+        --line: #d8ded8;
+        --text: #1f2933;
+        --muted: #667085;
+        --primary: #1f6f5b;
+        --primary-soft: #e4f2ed;
+        --accent: #c17c28;
+        --danger: #b42318;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        overflow: hidden;
+      }
+
+      .sample.ocean {
+        --bg: #eef4f7;
+        --surface: #ffffff;
+        --surface-strong: #e6eef5;
+        --line: #ccd8e1;
+        --text: #17212b;
+        --muted: #637083;
+        --primary: #2864a6;
+        --primary-soft: #e6f0fb;
+        --accent: #d08b45;
+        --danger: #c44536;
+      }
+
+      .sample.ink {
+        --bg: #f5f1ec;
+        --surface: #fffdf9;
+        --surface-strong: #ebe4da;
+        --line: #d8cec2;
+        --text: #25201c;
+        --muted: #736a61;
+        --primary: #3f3a8a;
+        --primary-soft: #ebeafd;
+        --accent: #b46b45;
+        --danger: #a43f3f;
+      }
+
+      .sample-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px 20px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .sample-header h2 {
+        margin: 0 0 5px;
+        color: var(--text);
+        font-size: 1.14rem;
+      }
+
+      .sample-header p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.5;
+        font-size: 0.92rem;
+      }
+
+      .tag {
+        align-self: start;
+        border-radius: 999px;
+        background: var(--primary-soft);
+        color: var(--primary);
+        padding: 6px 10px;
+        font-size: 0.82rem;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+
+      .mock {
+        background: var(--bg);
+        padding: 18px;
+      }
+
+      .app-frame {
+        display: grid;
+        grid-template-columns: minmax(300px, 410px) minmax(0, 1fr);
+        gap: 16px;
+      }
+
+      .phone {
+        border: 1px solid var(--line);
+        border-radius: 26px;
+        background: var(--surface);
+        padding: 18px;
+        box-shadow: 0 18px 44px rgba(24, 34, 45, 0.12);
+      }
+
+      .phone-top,
+      .desktop-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: flex-start;
+      }
+
+      .brand span {
+        display: block;
+        color: var(--muted);
+        font-size: 0.86rem;
+        margin-bottom: 4px;
+      }
+
+      .brand strong {
+        color: var(--text);
+        font-size: 1.32rem;
+      }
+
+      .month-pill {
+        border-radius: 999px;
+        background: var(--surface-strong);
+        color: var(--text);
+        padding: 7px 10px;
+        font-size: 0.84rem;
+        font-weight: 800;
+      }
+
+      .tabs {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin: 16px 0;
+      }
+
+      .tab {
+        min-height: 38px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--muted);
+        padding: 0 10px;
+        font-weight: 800;
+      }
+
+      .tab.active {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: #ffffff;
+      }
+
+      .quick-summary {
+        display: grid;
+        gap: 8px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--primary-soft);
+        padding: 14px;
+      }
+
+      .quick-summary span {
+        color: var(--primary);
+        font-weight: 800;
+        font-size: 0.86rem;
+      }
+
+      .quick-summary strong {
+        color: var(--text);
+        font-size: 1.65rem;
+      }
+
+      .form {
+        display: grid;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .field {
+        display: grid;
+        gap: 5px;
+        color: var(--muted);
+        font-size: 0.84rem;
+        font-weight: 800;
+      }
+
+      .field input,
+      .field select {
+        min-height: 40px;
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text);
+        padding: 0 11px;
+      }
+
+      .primary-button {
+        min-height: 42px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--primary);
+        color: #ffffff;
+        font-weight: 900;
+      }
+
+      .recent-list,
+      .metric-list {
+        display: grid;
+        gap: 8px;
+        list-style: none;
+        margin: 14px 0 0;
+        padding: 0;
+      }
+
+      .recent-list li,
+      .metric-list li {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        border-top: 1px solid var(--line);
+        padding-top: 9px;
+      }
+
+      .recent-list small,
+      .metric-list small {
+        display: block;
+        color: var(--muted);
+        margin-top: 3px;
+      }
+
+      .amount {
+        color: var(--text);
+        font-weight: 900;
+        white-space: nowrap;
+      }
+
+      .dashboard {
+        display: grid;
+        align-content: start;
+        gap: 14px;
+      }
+
+      .desktop-panel {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        padding: 16px;
+      }
+
+      .desktop-panel h3 {
+        margin: 0 0 12px;
+        color: var(--text);
+        font-size: 1rem;
+      }
+
+      .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .metric {
+        min-height: 88px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        padding: 13px;
+        display: grid;
+        align-content: space-between;
+      }
+
+      .metric span {
+        color: var(--muted);
+        font-size: 0.82rem;
+        font-weight: 800;
+      }
+
+      .metric strong {
+        color: var(--text);
+        font-size: 1.14rem;
+      }
+
+      .desktop-columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+
+      .bar-list {
+        display: grid;
+        gap: 12px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .bar-list li {
+        display: grid;
+        gap: 6px;
+      }
+
+      .bar-row {
+        display: flex;
+        justify-content: space-between;
+        color: var(--text);
+        font-size: 0.9rem;
+        font-weight: 800;
+      }
+
+      .bar {
+        height: 9px;
+        border-radius: 999px;
+        background: var(--surface-strong);
+        overflow: hidden;
+      }
+
+      .bar i {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--accent);
+      }
+
+      .positive {
+        color: var(--primary);
+      }
+
+      .negative {
+        color: var(--danger);
+      }
+
+      @media (max-width: 900px) {
+        .page {
+          padding: 16px;
+        }
+
+        .sample-header,
+        .app-frame,
+        .desktop-columns,
+        .metric-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .sample-header {
+          display: grid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="intro">
+        <h1>로컬 가계부 UI 색상 시안</h1>
+        <p>
+          기본은 B안처럼 모바일 입력 중심으로 두고, A안의 대시보드는 별도 탭에서 확인하는 구조입니다.
+          아래 3가지는 같은 화면 구조에 색상만 다르게 적용한 샘플입니다.
+        </p>
+      </section>
+
+      <section class="samples">
+        <article class="sample">
+          <header class="sample-header">
+            <div>
+              <h2>1안. 세이지 + 앰버</h2>
+              <p>차분한 개인 금융 도구 느낌입니다. 기존 초록 계열을 유지하되, 노란 갈색 포인트로 단조로움을 줄였습니다.</p>
+            </div>
+            <span class="tag">차분함</span>
+          </header>
+          <div class="mock">
+            <div class="app-frame">
+              <section class="phone">
+                <div class="phone-top">
+                  <div class="brand">
+                    <span>빠른 입력</span>
+                    <strong>6월 가계부</strong>
+                  </div>
+                  <div class="month-pill">06월</div>
+                </div>
+                <div class="tabs">
+                  <button class="tab active">입력</button>
+                  <button class="tab">대시보드</button>
+                  <button class="tab">사람</button>
+                </div>
+                <div class="quick-summary">
+                  <span>이번 달 남은 금액</span>
+                  <strong>2,158,000원</strong>
+                </div>
+                <div class="form">
+                  <label class="field">항목<select><option>장보기/식재료</option></select></label>
+                  <label class="field">금액<input value="41000" /></label>
+                  <label class="field">메모<input value="식재료" /></label>
+                  <button class="primary-button">지출 추가</button>
+                </div>
+                <ul class="recent-list">
+                  <li><span>점심/외식<small>회사 근처 점심</small></span><span class="amount">12,000원</span></li>
+                  <li><span>교통<small>버스</small></span><span class="amount">1,500원</span></li>
+                </ul>
+              </section>
+
+              <section class="dashboard">
+                <div class="desktop-top desktop-panel">
+                  <div class="brand">
+                    <span>대시보드 탭</span>
+                    <strong>2026년 6월 요약</strong>
+                  </div>
+                  <div class="month-pill">내보내기</div>
+                </div>
+                <div class="metric-grid">
+                  <div class="metric"><span>수입</span><strong>3,000,000원</strong></div>
+                  <div class="metric"><span>지출</span><strong>842,000원</strong></div>
+                  <div class="metric"><span>남은 금액</span><strong>2,158,000원</strong></div>
+                  <div class="metric"><span>지출률</span><strong>28%</strong></div>
+                </div>
+                <div class="desktop-columns">
+                  <section class="desktop-panel">
+                    <h3>카테고리별 지출</h3>
+                    <ul class="bar-list">
+                      <li><div class="bar-row"><span>고정비</span><span>320,000원</span></div><div class="bar"><i style="width: 74%"></i></div></li>
+                      <li><div class="bar-row"><span>점심/외식</span><span>214,000원</span></div><div class="bar"><i style="width: 48%"></i></div></li>
+                      <li><div class="bar-row"><span>데이트/여가</span><span>122,000원</span></div><div class="bar"><i style="width: 31%"></i></div></li>
+                    </ul>
+                  </section>
+                  <section class="desktop-panel">
+                    <h3>사람별 미정산</h3>
+                    <ul class="metric-list">
+                      <li><span>민수<small>영화 티켓</small></span><span class="amount positive">받을 돈 20,000원</span></li>
+                      <li><span>지연<small>저녁</small></span><span class="amount negative">갚을 돈 15,000원</span></li>
+                    </ul>
+                  </section>
+                </div>
+              </section>
+            </div>
+          </div>
+        </article>
+
+        <article class="sample ocean">
+          <header class="sample-header">
+            <div>
+              <h2>2안. 오션 블루 + 코퍼</h2>
+              <p>조금 더 선명하고 앱다운 느낌입니다. 초록에서 벗어나면서도 금융 앱처럼 안정적으로 보입니다.</p>
+            </div>
+            <span class="tag">선명함</span>
+          </header>
+          <div class="mock">
+            <div class="app-frame">
+              <section class="phone">
+                <div class="phone-top">
+                  <div class="brand">
+                    <span>빠른 입력</span>
+                    <strong>6월 가계부</strong>
+                  </div>
+                  <div class="month-pill">06월</div>
+                </div>
+                <div class="tabs">
+                  <button class="tab active">입력</button>
+                  <button class="tab">대시보드</button>
+                  <button class="tab">사람</button>
+                </div>
+                <div class="quick-summary">
+                  <span>이번 달 남은 금액</span>
+                  <strong>2,158,000원</strong>
+                </div>
+                <div class="form">
+                  <label class="field">항목<select><option>장보기/식재료</option></select></label>
+                  <label class="field">금액<input value="41000" /></label>
+                  <label class="field">메모<input value="식재료" /></label>
+                  <button class="primary-button">지출 추가</button>
+                </div>
+                <ul class="recent-list">
+                  <li><span>점심/외식<small>회사 근처 점심</small></span><span class="amount">12,000원</span></li>
+                  <li><span>교통<small>버스</small></span><span class="amount">1,500원</span></li>
+                </ul>
+              </section>
+
+              <section class="dashboard">
+                <div class="desktop-top desktop-panel">
+                  <div class="brand">
+                    <span>대시보드 탭</span>
+                    <strong>2026년 6월 요약</strong>
+                  </div>
+                  <div class="month-pill">내보내기</div>
+                </div>
+                <div class="metric-grid">
+                  <div class="metric"><span>수입</span><strong>3,000,000원</strong></div>
+                  <div class="metric"><span>지출</span><strong>842,000원</strong></div>
+                  <div class="metric"><span>남은 금액</span><strong>2,158,000원</strong></div>
+                  <div class="metric"><span>지출률</span><strong>28%</strong></div>
+                </div>
+                <div class="desktop-columns">
+                  <section class="desktop-panel">
+                    <h3>카테고리별 지출</h3>
+                    <ul class="bar-list">
+                      <li><div class="bar-row"><span>고정비</span><span>320,000원</span></div><div class="bar"><i style="width: 74%"></i></div></li>
+                      <li><div class="bar-row"><span>점심/외식</span><span>214,000원</span></div><div class="bar"><i style="width: 48%"></i></div></li>
+                      <li><div class="bar-row"><span>데이트/여가</span><span>122,000원</span></div><div class="bar"><i style="width: 31%"></i></div></li>
+                    </ul>
+                  </section>
+                  <section class="desktop-panel">
+                    <h3>사람별 미정산</h3>
+                    <ul class="metric-list">
+                      <li><span>민수<small>영화 티켓</small></span><span class="amount positive">받을 돈 20,000원</span></li>
+                      <li><span>지연<small>저녁</small></span><span class="amount negative">갚을 돈 15,000원</span></li>
+                    </ul>
+                  </section>
+                </div>
+              </section>
+            </div>
+          </div>
+        </article>
+
+        <article class="sample ink">
+          <header class="sample-header">
+            <div>
+              <h2>3안. 잉크 퍼플 + 클레이</h2>
+              <p>개인 노트 앱 같은 따뜻한 느낌입니다. 금융 앱의 차가운 느낌이 싫다면 이쪽이 좋습니다.</p>
+            </div>
+            <span class="tag">따뜻함</span>
+          </header>
+          <div class="mock">
+            <div class="app-frame">
+              <section class="phone">
+                <div class="phone-top">
+                  <div class="brand">
+                    <span>빠른 입력</span>
+                    <strong>6월 가계부</strong>
+                  </div>
+                  <div class="month-pill">06월</div>
+                </div>
+                <div class="tabs">
+                  <button class="tab active">입력</button>
+                  <button class="tab">대시보드</button>
+                  <button class="tab">사람</button>
+                </div>
+                <div class="quick-summary">
+                  <span>이번 달 남은 금액</span>
+                  <strong>2,158,000원</strong>
+                </div>
+                <div class="form">
+                  <label class="field">항목<select><option>장보기/식재료</option></select></label>
+                  <label class="field">금액<input value="41000" /></label>
+                  <label class="field">메모<input value="식재료" /></label>
+                  <button class="primary-button">지출 추가</button>
+                </div>
+                <ul class="recent-list">
+                  <li><span>점심/외식<small>회사 근처 점심</small></span><span class="amount">12,000원</span></li>
+                  <li><span>교통<small>버스</small></span><span class="amount">1,500원</span></li>
+                </ul>
+              </section>
+
+              <section class="dashboard">
+                <div class="desktop-top desktop-panel">
+                  <div class="brand">
+                    <span>대시보드 탭</span>
+                    <strong>2026년 6월 요약</strong>
+                  </div>
+                  <div class="month-pill">내보내기</div>
+                </div>
+                <div class="metric-grid">
+                  <div class="metric"><span>수입</span><strong>3,000,000원</strong></div>
+                  <div class="metric"><span>지출</span><strong>842,000원</strong></div>
+                  <div class="metric"><span>남은 금액</span><strong>2,158,000원</strong></div>
+                  <div class="metric"><span>지출률</span><strong>28%</strong></div>
+                </div>
+                <div class="desktop-columns">
+                  <section class="desktop-panel">
+                    <h3>카테고리별 지출</h3>
+                    <ul class="bar-list">
+                      <li><div class="bar-row"><span>고정비</span><span>320,000원</span></div><div class="bar"><i style="width: 74%"></i></div></li>
+                      <li><div class="bar-row"><span>점심/외식</span><span>214,000원</span></div><div class="bar"><i style="width: 48%"></i></div></li>
+                      <li><div class="bar-row"><span>데이트/여가</span><span>122,000원</span></div><div class="bar"><i style="width: 31%"></i></div></li>
+                    </ul>
+                  </section>
+                  <section class="desktop-panel">
+                    <h3>사람별 미정산</h3>
+                    <ul class="metric-list">
+                      <li><span>민수<small>영화 티켓</small></span><span class="amount positive">받을 돈 20,000원</span></li>
+                      <li><span>지연<small>저녁</small></span><span class="amount negative">갚을 돈 15,000원</span></li>
+                    </ul>
+                  </section>
+                </div>
+              </section>
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

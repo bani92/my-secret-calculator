@@ -4,7 +4,7 @@
 
 **Goal:** Vue 기반 로컬 웹앱으로 월별 가계부와 사람별 돈 기록 기능을 만든다.
 
-**Architecture:** Vue 3 SPA를 Vite로 구성하고, Pinia store가 앱 상태를 관리한다. 저장소는 `BudgetRepository` 인터페이스 뒤에 숨기고 첫 구현은 localStorage를 사용해서, 나중에 Spring Boot API 저장소로 교체할 수 있게 한다.
+**Architecture:** Vue 3 SPA를 Vite로 구성하고, Pinia store가 앱 상태를 관리한다. 저장소는 `BudgetRepository` 인터페이스 뒤에 숨기고 첫 구현은 localStorage를 사용해서, 나중에 Spring Boot API 저장소로 교체할 수 있게 한다. UI는 모바일 입력 중심을 기본 화면으로 두고, 월별 요약 대시보드는 별도 탭으로 제공한다.
 
 **Tech Stack:** Vue 3, Vite, TypeScript, Pinia, Vitest, localStorage, CSS
 
@@ -29,8 +29,19 @@
 - Create: `src/storage/exportImport.test.ts` - 백업/복원 테스트
 - Create: `src/stores/budgetStore.ts` - Pinia 상태 관리
 - Create: `src/components/LedgerTab.vue` - 가계부 탭
+- Create: `src/components/DashboardTab.vue` - 월별 요약 대시보드 탭
 - Create: `src/components/PersonMoneyTab.vue` - 사람별 돈 기록 탭
 - Create: `src/components/SummaryCard.vue` - 요약 카드
+
+## UI 방향
+
+구현 UI는 `docs/ui-samples/budget-ui-options.html`의 구조를 따른다.
+
+- 기본 탭은 `입력`이다.
+- `입력` 탭은 B안처럼 모바일에서 빠르게 지출을 추가하는 흐름을 우선한다.
+- A안의 월별 합계, 카테고리 합계, 사람별 미정산 요약은 `대시보드` 탭으로 분리한다.
+- 세 번째 탭은 `사람` 또는 `사람별 돈`으로 표시하고, 사람별 돈 기록 입력과 전체 기록을 보여준다.
+- 색상은 사용자가 최종 선택한 팔레트를 적용한다. 팔레트 선택 전에는 샘플의 `세이지 + 앰버`, `오션 블루 + 코퍼`, `잉크 퍼플 + 클레이` 중 하나를 CSS 변수로 쉽게 교체할 수 있게 구성한다.
 
 ## Task 1: Vue 프로젝트 기반 만들기
 
