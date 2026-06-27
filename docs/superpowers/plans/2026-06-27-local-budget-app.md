@@ -1452,3 +1452,84 @@ Expected: Vite 개발 서버가 `http://127.0.0.1:5173/` 또는 사용 가능한
 - Spec coverage: 월별 가계부, 수입 입력, 카테고리별 합계, 사람별 돈 기록, 정산 완료 후 기록 보존, localStorage 저장, JSON 백업/복원, 모바일/데스크톱 검증이 모두 태스크에 포함되어 있다.
 - Placeholder scan: 비어 있는 구현 지시나 자리표시자 표현을 사용하지 않았다.
 - Type consistency: `BudgetData`, `Expense`, `MonthRecord`, `PersonMoneyRecord`, `CategoryId`, `PersonMoneyDirection` 이름이 태스크 전반에서 일관된다.
+
+## 선택된 디자인 방향
+
+사용자는 색상 팔레트로 `오션 블루 + 코퍼`를 선택했다.
+
+앱의 주요 정보 구조는 다음 순서를 따른다.
+
+```text
+앱
+├─ 입력 탭
+│  ├─ 이번 달 남은 금액
+│  ├─ 빠른 지출 입력
+│  ├─ 오늘/최근 지출
+│  └─ 월 수입 입력
+├─ 대시보드 탭
+│  ├─ 수입 / 지출 / 남은 금액 / 지출률
+│  ├─ 카테고리별 지출
+│  ├─ 월별 지출 목록
+│  └─ 사람별 미정산 요약
+└─ 사람 탭
+   ├─ 사람별 돈 기록 입력
+   ├─ 현재 미정산 합계
+   └─ 정산 완료 포함 전체 거래 기록
+```
+
+구현 시 첫 화면은 `입력` 탭이어야 한다. 사용자가 매번 앱을 켰을 때 가장 먼저 할 행동은 분석이 아니라 빠른 기록이기 때문이다. `대시보드` 탭은 월별 흐름을 확인하고 싶을 때 들어가는 보조 화면으로 둔다.
+
+### 디자인 토큰
+
+오션 블루 + 코퍼 팔레트는 CSS 변수로 정의한다.
+
+```css
+:root {
+  --color-bg: #eef4f7;
+  --color-surface: #ffffff;
+  --color-surface-strong: #e6eef5;
+  --color-line: #ccd8e1;
+  --color-text: #17212b;
+  --color-muted: #637083;
+  --color-primary: #2864a6;
+  --color-primary-soft: #e6f0fb;
+  --color-accent: #d08b45;
+  --color-danger: #c44536;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --touch-target: 44px;
+}
+```
+
+폰트는 한국어 가독성을 우선해 `Pretendard`를 기본으로 사용한다. 시스템 폰트는 최후의 fallback으로만 둔다.
+
+### 상태 화면
+
+| 기능 | 비어 있음 | 오류 | 성공 | 부분 상태 |
+|------|-----------|------|------|-----------|
+| 입력 탭 | 최근 지출이 없으면 "이번 달 첫 지출을 기록해보세요"와 입력 폼을 보여준다. | 금액이 0 이하이면 필드 아래에 짧은 오류 문구를 보여준다. | 추가 후 금액/메모를 비우고 최근 지출 최상단에 반영한다. | 수입이 없어도 남은 금액은 지출 기준 음수로 보여주고 지출률은 `-`로 표시한다. |
+| 대시보드 탭 | 지출이 없으면 카테고리 영역에 빈 상태 안내를 보여준다. | 저장 데이터 파싱 실패 시 localStorage 초기화 안내를 보여준다. | 월 수입/지출/카테고리 합계가 즉시 갱신된다. | 일부 카테고리만 지출이 있으면 해당 카테고리만 보여준다. |
+| 사람 탭 | 기록이 없으면 "아직 주고받은 돈 기록이 없습니다"와 입력 폼을 보여준다. | 사람 이름이 비어 있거나 금액이 0 이하이면 저장하지 않는다. | 기록 추가 후 사람 이름/금액/메모를 비운다. | 정산 완료된 기록은 전체 목록에 남고 미정산 합계에서만 제외된다. |
+| 백업/복원 | 데이터가 없어도 빈 JSON을 내보낼 수 있다. | 지원하지 않는 JSON 구조는 기존 데이터를 유지하고 오류를 보여준다. | 가져오기 성공 후 모든 탭의 데이터가 갱신된다. | 가져온 파일에 일부 월만 있어도 해당 데이터만 정상 표시한다. |
+
+### 반응형과 접근성
+
+- 375px 모바일에서는 `입력` 탭이 한 열로 표시되고, 주요 액션 버튼은 최소 44px 높이를 유지한다.
+- 768px 태블릿에서는 입력 폼과 최근 기록을 세로로 배치하되, 대시보드 요약 카드는 2열까지 허용한다.
+- 1024px 이상에서는 대시보드 탭을 넓게 보여주고, 입력 탭은 모바일 폰 프레임 같은 좁은 입력 영역과 최근 기록 영역을 나란히 배치한다.
+- 모든 form control에는 placeholder에만 의존하지 않는 보이는 label을 둔다.
+- 탭 버튼은 `aria-selected`와 키보드 포커스 스타일을 제공한다.
+- 본문 텍스트는 16px 이상, 보조 텍스트도 대비 4.5:1 이상을 목표로 한다.
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | not run | 개인용 로컬 앱 범위는 현재 충분히 작아 별도 CEO 리뷰는 보류 |
+| Codex Review | `/codex review` | Independent 2nd opinion | 0 | not run | 구현 전 단계라 코드 리뷰 대상 없음 |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 0 | pending | 구현 전 저장소/상태관리 구조는 계획에 포함되어 있으나 별도 엔지니어링 리뷰는 아직 없음 |
+| Design Review | `/plan-design-review` | UI/UX gaps | 1 | clear | score: 6/10 -> 8/10, 입력 우선 IA, 대시보드 분리, 오션 블루 + 코퍼 토큰, 상태/반응형/a11y 보강 |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | not run | 개인 프로젝트라 현재는 보류 |
+
+- **VERDICT:** DESIGN CLEARED for implementation. Eng review can follow after the first working Vue implementation.
+NO UNRESOLVED DECISIONS
