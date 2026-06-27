@@ -2,8 +2,7 @@
   <section class="workspace-grid">
     <form class="panel form-panel" @submit.prevent="submitExpense" data-testid="expense-form">
       <div class="section-heading">
-        <span>입력</span>
-        <h2>빠른 기록</h2>
+        <h2>월 수입</h2>
       </div>
 
       <label>
@@ -19,12 +18,16 @@
       <div class="inline-field">
         <label>
           월 수입
-          <input v-model.number="incomeDraft" aria-label="월 수입" type="number" min="0" inputmode="numeric" />
+          <input :value="incomeDraft" aria-label="월 수입" type="text" inputmode="numeric" @input="updateIncome" />
         </label>
         <button type="button" class="secondary-button" data-testid="save-income" @click="saveIncome">저장</button>
       </div>
 
       <hr />
+
+      <div class="section-heading compact">
+        <h2>일일 지출</h2>
+      </div>
 
       <label>
         날짜
@@ -43,12 +46,12 @@
       <label>
         금액
         <input
-          v-model.number="expenseForm.amount"
+          :value="expenseAmountDraft"
           aria-label="지출 금액"
-          type="number"
-          min="1"
+          type="text"
           inputmode="numeric"
           required
+          @input="updateExpenseAmount"
         />
       </label>
 
@@ -101,37 +104,49 @@ import { categories } from '../domain/categories';
 import type { CategoryId } from '../domain/types';
 import { toMonth } from '../domain/calculations';
 import { useBudgetStore } from '../stores/budgetStore';
+import { formatMoneyInput, parseMoneyInput } from '../utils/money';
 
 const store = useBudgetStore();
 const today = new Date().toISOString().slice(0, 10);
-const incomeDraft = ref(store.monthSummary.income);
+const incomeDraft = ref(formatMoneyInput(String(store.monthSummary.income)));
+const expenseAmountDraft = ref('');
 const expenseForm = reactive({
   date: today,
   categoryId: 'lunch' as CategoryId,
-  amount: 0,
   memo: ''
 });
 
 watch(
   () => store.selectedMonth,
   () => {
-    incomeDraft.value = store.monthSummary.income;
+    incomeDraft.value = formatMoneyInput(String(store.monthSummary.income));
   }
 );
 
+function updateIncome(event: Event): void {
+  incomeDraft.value = formatMoneyInput((event.target as HTMLInputElement).value);
+}
+
 function saveIncome(): void {
-  store.setIncome(Number(incomeDraft.value) || 0);
+  store.setIncome(parseMoneyInput(incomeDraft.value));
+  incomeDraft.value = '';
+}
+
+function updateExpenseAmount(event: Event): void {
+  expenseAmountDraft.value = formatMoneyInput((event.target as HTMLInputElement).value);
 }
 
 function submitExpense(): void {
-  if (expenseForm.amount <= 0) {
+  const amount = parseMoneyInput(expenseAmountDraft.value);
+
+  if (amount <= 0) {
     return;
   }
 
-  store.addExpense({ ...expenseForm });
+  store.addExpense({ ...expenseForm, amount });
   store.setSelectedMonth(toMonth(expenseForm.date));
-  incomeDraft.value = store.monthSummary.income;
-  expenseForm.amount = 0;
+  incomeDraft.value = formatMoneyInput(String(store.monthSummary.income));
+  expenseAmountDraft.value = '';
   expenseForm.memo = '';
 }
 

@@ -55,6 +55,19 @@ const tabs: Array<{ id: TabId; label: string }> = [
 const store = useBudgetStore();
 const activeTab = ref<TabId>('input');
 const statusMessage = ref('');
+let statusTimer: ReturnType<typeof setTimeout> | undefined;
+
+function showStatus(message: string): void {
+  statusMessage.value = message;
+
+  if (statusTimer) {
+    clearTimeout(statusTimer);
+  }
+
+  statusTimer = setTimeout(() => {
+    statusMessage.value = '';
+  }, 3_000);
+}
 
 function downloadBackup(): void {
   const blob = new Blob([store.exportJson()], { type: 'application/json' });
@@ -64,7 +77,7 @@ function downloadBackup(): void {
   anchor.download = `local-budget-${new Date().toISOString().slice(0, 10)}.json`;
   anchor.click();
   URL.revokeObjectURL(url);
-  statusMessage.value = '백업 파일을 내보냈습니다.';
+  showStatus('백업 파일을 내보냈습니다.');
 }
 
 async function importBackup(event: Event): Promise<void> {
@@ -77,9 +90,9 @@ async function importBackup(event: Event): Promise<void> {
 
   try {
     store.importJson(await file.text());
-    statusMessage.value = '백업 파일을 가져왔습니다.';
+    showStatus('백업 파일을 가져왔습니다.');
   } catch {
-    statusMessage.value = '지원하지 않는 백업 파일입니다.';
+    showStatus('지원하지 않는 백업 파일입니다.');
   } finally {
     input.value = '';
   }

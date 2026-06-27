@@ -26,7 +26,14 @@
 
       <label>
         금액
-        <input v-model.number="form.amount" aria-label="사람별 금액" type="number" min="1" inputmode="numeric" required />
+        <input
+          :value="amountDraft"
+          aria-label="사람별 금액"
+          type="text"
+          inputmode="numeric"
+          required
+          @input="updateAmount"
+        />
       </label>
 
       <label>
@@ -83,33 +90,40 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive } from 'vue';
+import { computed, reactive, ref } from 'vue';
 
 import type { PersonMoneyDirection } from '../domain/types';
 import { useBudgetStore } from '../stores/budgetStore';
+import { formatMoneyInput, parseMoneyInput } from '../utils/money';
 
 const store = useBudgetStore();
 const form = reactive({
   date: new Date().toISOString().slice(0, 10),
   personName: '',
   direction: 'receivable' as PersonMoneyDirection,
-  amount: 0,
   memo: ''
 });
+const amountDraft = ref('');
 
 const orderedRecords = computed(() =>
   [...store.data.personRecords].sort((left, right) => right.date.localeCompare(left.date))
 );
 
 function submitRecord(): void {
-  if (!form.personName.trim() || form.amount <= 0) {
+  const amount = parseMoneyInput(amountDraft.value);
+
+  if (!form.personName.trim() || amount <= 0) {
     return;
   }
 
-  store.addPersonRecord({ ...form });
+  store.addPersonRecord({ ...form, amount });
   form.personName = '';
-  form.amount = 0;
+  amountDraft.value = '';
   form.memo = '';
+}
+
+function updateAmount(event: Event): void {
+  amountDraft.value = formatMoneyInput((event.target as HTMLInputElement).value);
 }
 
 function formatWon(amount: number): string {
