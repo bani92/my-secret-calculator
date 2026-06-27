@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CATEGORIES } from './categories';
+import { categories } from './categories';
 import {
   calculateMonthSummary,
   calculatePersonBalances,
@@ -7,96 +7,192 @@ import {
   getCurrentMonth,
   toMonth
 } from './calculations';
-import type { BudgetData, Expense, MonthRecord, PersonMoneyRecord } from './types';
+import type { BudgetData, CategoryId, Expense, MonthRecord, PersonMoneyRecord } from './types';
 
-describe('budget domain calculations', () => {
-  it('defines Korean category labels for every expense category', () => {
-    expect(CATEGORIES).toEqual([
-      { id: 'food', label: '식비' },
-      { id: 'transportation', label: '교통' },
-      { id: 'housing', label: '주거' },
-      { id: 'utilities', label: '공과금' },
-      { id: 'healthcare', label: '의료' },
-      { id: 'culture', label: '문화' },
-      { id: 'shopping', label: '쇼핑' },
-      { id: 'education', label: '교육' },
-      { id: 'savings', label: '저축' },
+describe('budget domain model', () => {
+  it('defines the required Korean category labels in order', () => {
+    const expectedCategoryIds = [
+      'lunch',
+      'living',
+      'fixed',
+      'dating',
+      'groceries',
+      'transport',
+      'health',
+      'gifts',
+      'other'
+    ] satisfies CategoryId[];
+
+    expect(categories).toEqual([
+      { id: 'lunch', label: '점심/외식' },
+      { id: 'living', label: '생활비' },
+      { id: 'fixed', label: '고정비' },
+      { id: 'dating', label: '데이트/여가' },
+      { id: 'groceries', label: '장보기/식재료' },
+      { id: 'transport', label: '교통' },
+      { id: 'health', label: '의료/건강' },
+      { id: 'gifts', label: '선물/경조사' },
       { id: 'other', label: '기타' }
     ]);
+    expect(categories.map((category) => category.id)).toEqual(expectedCategoryIds);
   });
 
-  it('summarizes income, expenses, balance, and category totals for one month', () => {
-    const months: MonthRecord[] = [
-      { month: '2026-06', income: 3_000_000 },
-      { month: '2026-07', income: 2_500_000 }
-    ];
+  it('summarizes one month from record-shaped months and spending-only category totals', () => {
+    const months: Record<string, MonthRecord> = {
+      '2026-06': { month: '2026-06', income: 3_000_000 },
+      '2026-07': { month: '2026-07', income: 2_500_000 }
+    };
     const expenses: Expense[] = [
-      { id: 'expense-1', month: '2026-06', categoryId: 'food', amount: 120_000, memo: '점심' },
-      { id: 'expense-2', month: '2026-06', categoryId: 'food', amount: 80_000, memo: '저녁' },
-      { id: 'expense-3', month: '2026-06', categoryId: 'transportation', amount: 55_000 },
-      { id: 'expense-4', month: '2026-07', categoryId: 'food', amount: 90_000 }
+      {
+        id: 'expense-1',
+        date: '2026-06-03',
+        month: '2026-06',
+        categoryId: 'lunch',
+        amount: 120_000,
+        memo: '점심'
+      },
+      {
+        id: 'expense-2',
+        date: '2026-06-04',
+        month: '2026-06',
+        categoryId: 'lunch',
+        amount: 80_000,
+        memo: '외식'
+      },
+      {
+        id: 'expense-3',
+        date: '2026-06-05',
+        month: '2026-06',
+        categoryId: 'transport',
+        amount: 55_000,
+        memo: ''
+      },
+      {
+        id: 'expense-4',
+        date: '2026-07-01',
+        month: '2026-07',
+        categoryId: 'lunch',
+        amount: 90_000,
+        memo: ''
+      }
     ];
 
     expect(calculateMonthSummary('2026-06', months, expenses)).toEqual({
-      month: '2026-06',
       income: 3_000_000,
-      totalExpenses: 255_000,
-      balance: 2_745_000,
+      expenseTotal: 255_000,
+      remaining: 2_745_000,
+      spendingRatio: 0.085,
       categoryTotals: {
-        food: 200_000,
-        transportation: 55_000,
-        housing: 0,
-        utilities: 0,
-        healthcare: 0,
-        culture: 0,
-        shopping: 0,
-        education: 0,
-        savings: 0,
-        other: 0
+        lunch: 200_000,
+        transport: 55_000
       }
     });
   });
 
-  it('uses zero income when a month record does not exist', () => {
+  it('returns a null spending ratio when income is not positive', () => {
+    const months: Record<string, MonthRecord> = {
+      '2026-08': { month: '2026-08', income: 0 }
+    };
     const expenses: Expense[] = [
-      { id: 'expense-1', month: '2026-08', categoryId: 'other', amount: 30_000 }
+      {
+        id: 'expense-1',
+        date: '2026-08-01',
+        month: '2026-08',
+        categoryId: 'other',
+        amount: 30_000,
+        memo: ''
+      }
     ];
 
-    expect(calculateMonthSummary('2026-08', [], expenses)).toMatchObject({
-      month: '2026-08',
+    expect(calculateMonthSummary('2026-08', months, expenses)).toEqual({
       income: 0,
-      totalExpenses: 30_000,
-      balance: -30_000
+      expenseTotal: 30_000,
+      remaining: -30_000,
+      spendingRatio: null,
+      categoryTotals: {
+        other: 30_000
+      }
     });
   });
 
-  it('calculates net balances by person', () => {
+  it('ignores settled person records, excludes zero balances, and sorts names by Korean locale', () => {
     const records: PersonMoneyRecord[] = [
-      { id: 'person-1', personName: '민수', direction: 'to_receive', amount: 50_000 },
-      { id: 'person-2', personName: '민수', direction: 'to_pay', amount: 12_000 },
-      { id: 'person-3', personName: '지아', direction: 'to_pay', amount: 20_000 },
-      { id: 'person-4', personName: '지아', direction: 'to_receive', amount: 5_000 }
+      {
+        id: 'person-1',
+        date: '2026-06-01',
+        personName: '민수',
+        direction: 'receivable',
+        amount: 50_000,
+        memo: '',
+        settled: false
+      },
+      {
+        id: 'person-2',
+        date: '2026-06-02',
+        personName: '민수',
+        direction: 'payable',
+        amount: 12_000,
+        memo: '',
+        settled: false
+      },
+      {
+        id: 'person-3',
+        date: '2026-06-03',
+        personName: '가영',
+        direction: 'payable',
+        amount: 15_000,
+        memo: '',
+        settled: false
+      },
+      {
+        id: 'person-4',
+        date: '2026-06-04',
+        personName: '지아',
+        direction: 'receivable',
+        amount: 20_000,
+        memo: '',
+        settled: true
+      },
+      {
+        id: 'person-5',
+        date: '2026-06-05',
+        personName: '태호',
+        direction: 'receivable',
+        amount: 10_000,
+        memo: '',
+        settled: false
+      },
+      {
+        id: 'person-6',
+        date: '2026-06-06',
+        personName: '태호',
+        direction: 'payable',
+        amount: 10_000,
+        memo: '',
+        settled: false
+      }
     ];
 
     expect(calculatePersonBalances(records)).toEqual([
-      { personName: '민수', balance: 38_000, direction: 'to_receive' },
-      { personName: '지아', balance: -15_000, direction: 'to_pay' }
+      { personName: '가영', balance: -15_000 },
+      { personName: '민수', balance: 38_000 }
     ]);
   });
 
-  it('creates empty budget data with the required collections', () => {
+  it('creates empty versioned budget data with record-shaped months', () => {
     const data: BudgetData = createEmptyBudgetData();
 
     expect(data).toEqual({
-      months: [],
+      version: 1,
+      months: {},
       expenses: [],
-      personMoneyRecords: []
+      personRecords: []
     });
   });
 
-  it('formats dates as local calendar months', () => {
-    expect(toMonth(new Date(2026, 0, 3))).toBe('2026-01');
-    expect(toMonth(new Date(2026, 10, 27))).toBe('2026-11');
-    expect(getCurrentMonth()).toMatch(/^\d{4}-\d{2}$/);
+  it('formats date strings and Date objects as calendar months', () => {
+    expect(toMonth('2026-01-03')).toBe('2026-01');
+    expect(toMonth('2026-11-27')).toBe('2026-11');
+    expect(getCurrentMonth(new Date(2026, 0, 3))).toBe('2026-01');
   });
 });

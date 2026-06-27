@@ -5,15 +5,14 @@ export interface Category {
   label: string;
 }
 
-export const CATEGORIES: Category[] = [
-  { id: 'food', label: '식비' },
-  { id: 'transportation', label: '교통' },
-  { id: 'housing', label: '주거' },
-  { id: 'utilities', label: '공과금' },
-  { id: 'healthcare', label: '의료' },
-  { id: 'culture', label: '문화' },
-  { id: 'shopping', label: '쇼핑' },
-  { id: 'education', label: '교육' },
-  { id: 'savings', label: '저축' },
+export const categories: Category[] = [
+  { id: 'lunch', label: '점심/외식' },
+  { id: 'living', label: '생활비' },
+  { id: 'fixed', label: '고정비' },
+  { id: 'dating', label: '데이트/여가' },
+  { id: 'groceries', label: '장보기/식재료' },
+  { id: 'transport', label: '교통' },
+  { id: 'health', label: '의료/건강' },
+  { id: 'gifts', label: '선물/경조사' },
   { id: 'other', label: '기타' }
 ];

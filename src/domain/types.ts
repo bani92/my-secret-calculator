@@ -1,16 +1,15 @@
 export type CategoryId =
-  | 'food'
-  | 'transportation'
-  | 'housing'
-  | 'utilities'
-  | 'healthcare'
-  | 'culture'
-  | 'shopping'
-  | 'education'
-  | 'savings'
+  | 'lunch'
+  | 'living'
+  | 'fixed'
+  | 'dating'
+  | 'groceries'
+  | 'transport'
+  | 'health'
+  | 'gifts'
   | 'other';
 
-export type PersonMoneyDirection = 'to_receive' | 'to_pay';
+export type PersonMoneyDirection = 'receivable' | 'payable';
 
 export interface MonthRecord {
   month: string;
@@ -19,22 +18,26 @@ export interface MonthRecord {
 
 export interface Expense {
   id: string;
+  date: string;
   month: string;
   categoryId: CategoryId;
   amount: number;
-  memo?: string;
+  memo: string;
 }
 
 export interface PersonMoneyRecord {
   id: string;
+  date: string;
   personName: string;
   direction: PersonMoneyDirection;
   amount: number;
-  memo?: string;
+  memo: string;
+  settled: boolean;
 }
 
 export interface BudgetData {
-  months: MonthRecord[];
+  version: 1;
+  months: Record<string, MonthRecord>;
   expenses: Expense[];
-  personMoneyRecords: PersonMoneyRecord[];
+  personRecords: PersonMoneyRecord[];
 }
