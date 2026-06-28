@@ -211,20 +211,29 @@ select:focus-visible,
 }
 
 .statistics-filter-panel {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 360px);
-  justify-items: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--space-3);
 }
 
 .statistics-filter-panel .section-heading {
-  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   margin-bottom: 0;
 }
 
+.statistics-filter-panel .section-heading span,
+.statistics-filter-panel .section-heading h2 {
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+.statistics-filter-panel .section-heading,
 .statistics-filter-field {
-  grid-column: 2;
-  max-width: 360px;
+  max-width: none;
+  width: 100%;
 }
 
 .yearly-stat-chart,
