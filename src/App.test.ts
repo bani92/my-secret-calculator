@@ -64,6 +64,80 @@ describe('App', () => {
     expect(wrapper.text()).toContain('점심/외식');
   });
 
+  test('selects a registered year and month from the dashboard', async () => {
+    const wrapper = mount(App, { global: { plugins: [createPinia()] } });
+
+    await wrapper.get('[aria-label="대상 월"]').setValue('2026-06');
+    await wrapper.get('[aria-label="월 수입"]').setValue('100000');
+    await wrapper.get('[data-testid="save-income"]').trigger('click');
+    await wrapper.get('[aria-label="지출 날짜"]').setValue('2026-06-10');
+    await wrapper.get('[aria-label="지출 금액"]').setValue('20000');
+    await wrapper.get('[aria-label="지출 메모"]').setValue('6월 지출');
+    await wrapper.get('[data-testid="expense-form"]').trigger('submit');
+
+    await wrapper.get('[aria-label="대상 월"]').setValue('2025-04');
+    await wrapper.get('[aria-label="월 수입"]').setValue('50000');
+    await wrapper.get('[data-testid="save-income"]').trigger('click');
+    await wrapper.get('[aria-label="지출 날짜"]').setValue('2025-04-02');
+    await wrapper.get('[aria-label="지출 금액"]').setValue('30000');
+    await wrapper.get('[aria-label="지출 메모"]').setValue('4월 지출');
+    await wrapper.get('[data-testid="expense-form"]').trigger('submit');
+
+    await wrapper.findAll('button').find((button) => button.text() === '대시보드')?.trigger('click');
+
+    expect(wrapper.get('[data-testid="dashboard-year-list"]').text()).toContain('2026');
+    expect(wrapper.get('[data-testid="dashboard-year-list"]').text()).toContain('2025');
+    expect(wrapper.get('[data-testid="dashboard-month-list"]').text()).toContain('4월');
+    expect(wrapper.text()).toContain('4월 지출');
+
+    await wrapper.findAll('[data-testid="dashboard-year"]').find((button) => button.text() === '2026')?.trigger('click');
+
+    expect(wrapper.get('[data-testid="dashboard-month-list"]').text()).toContain('6월');
+
+    await wrapper.findAll('[data-testid="dashboard-month"]').find((button) => button.text().includes('6월'))?.trigger('click');
+
+    expect(wrapper.text()).toContain('2026-06');
+    expect(wrapper.text()).toContain('6월 지출');
+    expect(wrapper.text()).not.toContain('4월 지출');
+  });
+
+  test('shows spending statistics by year and selected year months', async () => {
+    const wrapper = mount(App, { global: { plugins: [createPinia()] } });
+
+    await wrapper.findAll('button').find((button) => button.text() === '통계')?.trigger('click');
+
+    expect(wrapper.text()).toContain('아직 지출 통계가 없습니다');
+
+    await wrapper.findAll('button').find((button) => button.text() === '입력')?.trigger('click');
+    await wrapper.get('[aria-label="지출 날짜"]').setValue('2026-06-10');
+    await wrapper.get('[aria-label="지출 금액"]').setValue('20000');
+    await wrapper.get('[aria-label="지출 메모"]').setValue('6월 지출');
+    await wrapper.get('[data-testid="expense-form"]').trigger('submit');
+    await wrapper.get('[aria-label="지출 날짜"]').setValue('2026-04-02');
+    await wrapper.get('[aria-label="지출 금액"]').setValue('20000');
+    await wrapper.get('[aria-label="지출 메모"]').setValue('4월 지출');
+    await wrapper.get('[data-testid="expense-form"]').trigger('submit');
+    await wrapper.get('[aria-label="지출 날짜"]').setValue('2025-04-02');
+    await wrapper.get('[aria-label="지출 금액"]').setValue('30000');
+    await wrapper.get('[aria-label="지출 메모"]').setValue('작년 4월 지출');
+    await wrapper.get('[data-testid="expense-form"]').trigger('submit');
+
+    await wrapper.findAll('button').find((button) => button.text() === '통계')?.trigger('click');
+
+    expect(wrapper.get('[data-testid="yearly-expense-chart"]').text()).toContain('2026');
+    expect(wrapper.get('[data-testid="yearly-expense-chart"]').text()).toContain('40,000원');
+    expect(wrapper.get('[data-testid="statistics-summary"]').text()).toContain('지출월 평균');
+    expect(wrapper.get('[data-testid="statistics-summary"]').text()).toContain('4월 외 1개월 · 20,000원');
+    expect(wrapper.get('[data-testid="monthly-expense-chart"]').text()).toContain('6월');
+    expect(wrapper.get('[data-testid="monthly-expense-chart"]').text()).toContain('20,000원');
+
+    await wrapper.findAll('[data-testid="stat-year"]').find((button) => button.text().includes('2025'))?.trigger('click');
+
+    expect(wrapper.get('[data-testid="statistics-summary"]').text()).toContain('30,000원');
+    expect(wrapper.get('[data-testid="monthly-expense-chart"]').text()).toContain('4월');
+    expect(wrapper.get('[data-testid="monthly-expense-chart"]').text()).toContain('30,000원');
+  });
+
   test('records person money and keeps settled records in history', async () => {
     const wrapper = mount(App, { global: { plugins: [createPinia()] } });
 

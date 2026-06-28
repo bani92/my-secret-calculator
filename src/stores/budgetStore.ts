@@ -2,8 +2,10 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 
 import {
+  calculateMonthlyExpenseStats,
   calculateMonthSummary,
   calculatePersonBalances,
+  calculateYearlyExpenseStats,
   getCurrentMonth,
   toMonth
 } from '../domain/calculations';
@@ -26,6 +28,22 @@ export const useBudgetStore = defineStore('budget', () => {
       .filter((expense) => expense.month === selectedMonth.value)
       .sort((left, right) => right.date.localeCompare(left.date))
   );
+  const registeredMonths = computed(() => {
+    const months = new Set<string>(Object.keys(data.value.months));
+
+    for (const expense of data.value.expenses) {
+      months.add(expense.month);
+    }
+
+    return [...months].sort((left, right) => right.localeCompare(left));
+  });
+  const registeredYears = computed(() => {
+    const years = new Set(registeredMonths.value.map((month) => month.slice(0, 4)));
+
+    return [...years].sort((left, right) => right.localeCompare(left));
+  });
+  const yearlyExpenseStats = computed(() => calculateYearlyExpenseStats(data.value.expenses));
+  const expenseYears = computed(() => yearlyExpenseStats.value.map((stat) => stat.year));
   const personBalances = computed(() => calculatePersonBalances(data.value.personRecords));
 
   const persist = (): void => {
@@ -62,6 +80,8 @@ export const useBudgetStore = defineStore('budget', () => {
     data.value.expenses = data.value.expenses.filter((expense) => expense.id !== id);
     persist();
   };
+
+  const getMonthlyExpenseStats = (year: string) => calculateMonthlyExpenseStats(year, data.value.expenses);
 
   const addPersonRecord = (payload: {
     date: string;
@@ -103,11 +123,16 @@ export const useBudgetStore = defineStore('budget', () => {
     data,
     monthSummary,
     monthExpenses,
+    registeredMonths,
+    registeredYears,
+    yearlyExpenseStats,
+    expenseYears,
     personBalances,
     setSelectedMonth,
     setIncome,
     addExpense,
     deleteExpense,
+    getMonthlyExpenseStats,
     addPersonRecord,
     togglePersonRecordSettled,
     exportJson,

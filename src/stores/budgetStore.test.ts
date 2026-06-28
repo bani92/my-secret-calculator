@@ -68,6 +68,41 @@ describe('useBudgetStore', () => {
     expect(store.monthSummary.expenseTotal).toBe(0);
   });
 
+  test('derives expense statistics for years and months', () => {
+    const store = useBudgetStore();
+
+    store.addExpense({
+      date: '2026-06-27',
+      categoryId: 'lunch',
+      amount: 12_000,
+      memo: 'lunch'
+    });
+    store.addExpense({
+      date: '2026-06-28',
+      categoryId: 'living',
+      amount: 8_000,
+      memo: 'living'
+    });
+    store.addExpense({
+      date: '2025-04-02',
+      categoryId: 'transport',
+      amount: 5_000,
+      memo: 'bus'
+    });
+
+    expect(store.expenseYears).toEqual(['2026', '2025']);
+    expect(store.yearlyExpenseStats).toEqual([
+      { year: '2026', total: 20_000 },
+      { year: '2025', total: 5_000 }
+    ]);
+    expect(store.getMonthlyExpenseStats('2026').find((stat) => stat.month === '2026-06')).toEqual({
+      month: '2026-06',
+      label: '6월',
+      total: 20_000
+    });
+    expect(store.getMonthlyExpenseStats('2026')).toHaveLength(12);
+  });
+
   test('adds person records and toggles settlement in active balances only', () => {
     const store = useBudgetStore();
 

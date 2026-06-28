@@ -1,118 +1,121 @@
-# Spending Statistics Tab Design
+# 지출 통계 탭 설계
 
-## Goal
+## 목표
 
-Add a new `통계` tab that focuses only on spending trends. The first version should help the user quickly answer:
+새로운 `통계` 탭을 추가하고, 첫 버전은 지출 흐름만 집중해서 보여준다.
 
-- How much did I spend by year?
-- How much did I spend by month within a selected year?
-- Which month was the highest spending month?
-- What is my average monthly spending?
+사용자가 이 탭에서 빠르게 확인해야 하는 내용은 다음과 같다.
 
-Income, remaining balance, and person-to-person money records are out of scope for this first statistics version.
+- 년도별로 총 지출이 얼마나 되는가
+- 선택한 년도 안에서 월별 지출이 어떻게 달라지는가
+- 선택한 년도에서 지출이 가장 큰 월은 언제인가
+- 월 평균 지출은 얼마인가
 
-## Selected Approach
+첫 통계 버전에서는 월 수입, 남은 금액, 사람별 돈 기록은 다루지 않는다.
 
-Use approach A: spending-flow centered statistics.
+## 선택한 방향
 
-The tab will show yearly and monthly expense bar charts using the existing local budget data. It will not introduce an external chart library in the first version. CSS-based bars are enough for the current app size, easier to test, and consistent with the existing Vue component style.
+사용자가 선택한 **안 A: 지출 흐름 중심**으로 진행한다.
 
-## User Experience
+기존 로컬 가계부 데이터를 바탕으로 년도별 지출 그래프와 월별 지출 그래프를 만든다. 첫 구현에서는 외부 차트 라이브러리를 추가하지 않고, CSS 기반 막대 그래프로 구현한다. 현재 앱 규모에서는 이 방식이 가볍고 테스트하기 쉬우며, 기존 Vue 컴포넌트 구조와도 잘 맞는다.
 
-The app will add a fourth top-level tab:
+## 사용자 경험
+
+앱 상단 탭은 다음 4개가 된다.
 
 - `입력`
 - `대시보드`
 - `통계`
 - `사람`
 
-When the user opens `통계`, the screen shows:
+사용자가 `통계` 탭을 열면 다음 내용을 보여준다.
 
-1. A yearly spending summary chart
-   - One bar per registered year.
-   - Each bar shows total spending for that year.
-   - Clicking a year selects it for the monthly chart.
+1. 년도별 지출 요약 그래프
+   - 등록된 지출 데이터가 있는 년도를 막대 그래프로 보여준다.
+   - 각 막대는 해당 년도의 총 지출 금액을 의미한다.
+   - 년도를 클릭하면 아래 월별 그래프의 기준 년도가 바뀐다.
 
-2. Key spending summary cards
-   - Total spending for the selected year.
-   - Average monthly spending for months that have spending records.
-   - Highest spending month in the selected year.
+2. 선택 년도 요약 카드
+   - 선택한 년도의 총 지출
+   - 지출 기록이 있는 월 기준의 월 평균 지출
+   - 선택한 년도에서 지출이 가장 큰 월
 
-3. A monthly spending chart
-   - Months `1월` through `12월` for the selected year.
-   - Months with no spending show a zero-height or muted bar.
-   - The currently highest month gets a subtle accent treatment.
+3. 월별 지출 그래프
+   - 선택한 년도의 `1월`부터 `12월`까지 모두 보여준다.
+   - 지출이 없는 월은 낮은 막대 또는 비활성 색상으로 표시한다.
+   - 지출이 가장 큰 월은 포인트 색상으로 강조한다.
 
-If there is no spending data, the tab shows an empty state telling the user to add daily expenses first.
+지출 데이터가 하나도 없으면 그래프 대신 빈 상태 문구를 보여준다. 문구는 사용자가 먼저 일일 지출을 등록해야 한다는 방향으로 작성한다.
 
-## Data Model
+## 데이터 모델
 
-No storage schema change is required.
+저장 구조 변경은 필요 없다.
 
-The statistics tab derives all values from existing `BudgetData.expenses`.
+통계 탭은 기존 `BudgetData.expenses` 값을 기반으로 계산한다.
 
-New derived store values should be added to `budgetStore`:
+스토어 또는 계산 유틸에 추가할 파생 데이터는 다음과 같다.
 
-- `expenseYears`: registered years that have at least one expense.
-- `yearlyExpenseStats`: total expense amount by year.
-- `monthlyExpenseStatsForSelectedYear`: monthly expense totals for the selected statistics year.
+- `expenseYears`: 지출 기록이 하나 이상 있는 년도 목록
+- `yearlyExpenseStats`: 년도별 총 지출
+- `monthlyExpenseStatsForSelectedYear`: 선택한 년도의 월별 지출 합계
 
-The selected statistics year can be held inside the statistics component unless another screen needs it later.
+선택된 통계 년도는 다른 화면과 공유할 필요가 없으므로 `StatisticsTab.vue` 내부 상태로 관리한다.
 
-## Components
+## 컴포넌트
 
-Add one new component:
+새 컴포넌트를 추가한다.
 
 - `src/components/StatisticsTab.vue`
 
-The component should:
+이 컴포넌트는 다음 역할을 가진다.
 
-- Read expense-derived stats from `useBudgetStore`.
-- Keep a local `selectedYear`.
-- Render yearly and monthly CSS bar charts.
-- Reuse existing design tokens, panels, section headings, and summary card visual language.
+- `useBudgetStore`에서 지출 통계 데이터를 읽는다.
+- 로컬 상태로 `selectedYear`를 관리한다.
+- 년도별, 월별 CSS 막대 그래프를 렌더링한다.
+- 기존 디자인 토큰, 패널, 섹션 제목, 요약 카드 스타일을 재사용한다.
 
-Optional helper types or functions can live near the store or in `src/domain/calculations.ts` if the logic is easier to test there.
+계산 로직이 길어지면 `src/domain/calculations.ts`로 분리해서 테스트하기 쉽게 만든다.
 
-## Visual Design
+## 시각 디자인
 
-Keep the current Ocean Blue + Copper direction.
+현재 앱의 Ocean Blue + Copper 방향을 유지한다.
 
-- Primary blue bars for normal spending.
-- Copper accent for selected year or highest-spending month.
-- Muted bars for zero-spending months.
-- No card-inside-card nesting.
-- Charts should remain readable on mobile by stacking vertically and keeping labels compact.
+- 일반 지출 막대는 기본 파란색 계열을 사용한다.
+- 선택된 년도 또는 최고 지출 월은 Copper 포인트 색상으로 강조한다.
+- 지출이 없는 월은 흐린 색상으로 표시한다.
+- 카드 안에 다시 카드를 넣는 구조는 피한다.
+- 모바일에서는 그래프와 요약 카드가 세로로 자연스럽게 쌓이도록 한다.
+- 월 라벨은 `1월`, `2월`처럼 짧게 표시해서 작은 화면에서도 잘리지 않게 한다.
 
-## Testing
+## 테스트
 
-Use TDD for implementation.
+구현은 TDD로 진행한다.
 
-Add tests that prove:
+추가할 테스트는 다음 동작을 검증해야 한다.
 
-- The `통계` tab appears in the app navigation.
-- The statistics tab shows an empty state when there are no expenses.
-- Yearly totals are calculated from expenses only.
-- Selecting a year changes the monthly chart.
-- Monthly bars include all 12 months for the selected year.
+- 앱 내비게이션에 `통계` 탭이 표시된다.
+- 지출이 없을 때 통계 탭에 빈 상태가 표시된다.
+- 년도별 총 지출은 지출 기록만 기준으로 계산된다.
+- 년도를 선택하면 월별 그래프 내용이 바뀐다.
+- 월별 그래프는 선택한 년도의 1월부터 12월까지 모두 포함한다.
 
-Existing tests for input, dashboard, import/export, and person records must continue passing.
+기존 입력, 대시보드, 가져오기/내보내기, 사람별 기록 테스트는 계속 통과해야 한다.
 
-## Out Of Scope
+## 이번 범위에서 제외할 것
 
-Do not include these in the first statistics version:
+첫 통계 버전에서는 다음 기능을 넣지 않는다.
 
-- Income charts.
-- Balance charts.
-- Category pie charts.
-- External chart libraries.
-- Exporting charts as images.
-- Date range filters beyond year selection.
+- 수입 그래프
+- 남은 금액 그래프
+- 카테고리 파이 차트
+- 외부 차트 라이브러리
+- 그래프 이미지 내보내기
+- 년도 선택을 넘어서는 세부 기간 필터
 
-These can be added later after the spending-flow tab is stable.
+이 기능들은 지출 흐름 통계가 안정화된 뒤 후속 작업으로 추가한다.
 
-## Implementation Notes
+## 구현 메모
 
-The current dashboard change already introduced registered year/month selection patterns. The statistics tab should reuse the same interaction idea where practical, but it should not depend on dashboard component internals.
+대시보드에는 이미 등록 년도와 등록 월을 선택하는 패턴이 들어갔다. 통계 탭도 같은 사용감을 유지하되, 대시보드 컴포넌트 내부 구현에 직접 의존하지 않는다.
 
-The first implementation should favor clear, testable derived data over visual complexity.
+첫 구현은 시각 효과보다 계산의 명확성, 테스트 가능성, 모바일에서의 읽기 쉬움을 우선한다.

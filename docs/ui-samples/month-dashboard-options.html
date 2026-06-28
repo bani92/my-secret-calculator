@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>월별 대시보드 선택 UI 시안</title>
+    <style>
+      :root {
+        --color-bg: #eef4f7;
+        --color-surface: #ffffff;
+        --color-surface-strong: #e6eef5;
+        --color-line: #ccd8e1;
+        --color-text: #17212b;
+        --color-muted: #637083;
+        --color-primary: #2864a6;
+        --color-primary-soft: #e6f0fb;
+        --color-accent: #d08b45;
+        --color-danger: #c44536;
+        --radius-sm: 6px;
+        --radius-md: 8px;
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 12px;
+        --space-4: 16px;
+        --space-5: 20px;
+        --space-6: 24px;
+        --touch-target: 44px;
+        color: var(--color-text);
+        background: var(--color-bg);
+        font-family: Pretendard, "Noto Sans KR", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+      }
+
+      button {
+        min-height: var(--touch-target);
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-md);
+        background: var(--color-surface);
+        color: var(--color-text);
+        cursor: pointer;
+        font: inherit;
+        font-weight: 800;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      .page {
+        min-height: 100vh;
+        padding: 24px;
+      }
+
+      .intro,
+      .sample {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .intro {
+        margin-bottom: 20px;
+      }
+
+      .eyebrow {
+        margin-bottom: 4px;
+        color: var(--color-primary);
+        font-size: 0.9rem;
+        font-weight: 900;
+      }
+
+      .intro h1 {
+        margin-bottom: 8px;
+        font-size: 2rem;
+      }
+
+      .intro p {
+        max-width: 760px;
+        margin-bottom: 0;
+        color: var(--color-muted);
+        line-height: 1.6;
+      }
+
+      .samples {
+        display: grid;
+        gap: 24px;
+      }
+
+      .sample {
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-md);
+        background: var(--color-surface);
+        overflow: hidden;
+      }
+
+      .sample-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px 20px;
+        border-bottom: 1px solid var(--color-line);
+      }
+
+      .sample-header h2 {
+        margin-bottom: 4px;
+        font-size: 1.2rem;
+      }
+
+      .sample-header p {
+        margin-bottom: 0;
+        color: var(--color-muted);
+        line-height: 1.5;
+      }
+
+      .tag {
+        align-self: flex-start;
+        border-radius: 999px;
+        background: var(--color-primary-soft);
+        color: var(--color-primary);
+        padding: 6px 10px;
+        font-size: 0.82rem;
+        font-weight: 900;
+        white-space: nowrap;
+      }
+
+      .mock {
+        display: grid;
+        gap: 16px;
+        background: var(--color-bg);
+        padding: 18px;
+      }
+
+      .app-top {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .app-top h3 {
+        margin-bottom: 0;
+        font-size: 1.45rem;
+      }
+
+      .app-top span {
+        color: var(--color-muted);
+        font-size: 0.9rem;
+        font-weight: 800;
+      }
+
+      .month-chips,
+      .month-board {
+        display: grid;
+        gap: 8px;
+      }
+
+      .month-chips {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .month-chip,
+      .month-row,
+      .month-tile {
+        display: grid;
+        gap: 4px;
+        min-height: 76px;
+        padding: 12px;
+        text-align: left;
+      }
+
+      .month-chip strong,
+      .month-row strong,
+      .month-tile strong {
+        font-size: 1rem;
+      }
+
+      .month-chip span,
+      .month-row span,
+      .month-tile span {
+        color: var(--color-muted);
+        font-size: 0.86rem;
+        font-weight: 700;
+      }
+
+      .month-chip.active,
+      .month-row.active,
+      .month-tile.active {
+        border-color: var(--color-primary);
+        background: var(--color-primary);
+        color: #ffffff;
+      }
+
+      .month-chip.active span,
+      .month-row.active span,
+      .month-tile.active span {
+        color: #dcecff;
+      }
+
+      .detail-panel {
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-md);
+        background: var(--color-surface);
+        padding: 18px;
+      }
+
+      .detail-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      .detail-head h3 {
+        margin-bottom: 4px;
+      }
+
+      .detail-head p {
+        margin-bottom: 0;
+        color: var(--color-muted);
+      }
+
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+
+      .summary-card {
+        min-height: 86px;
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-md);
+        background: var(--color-primary-soft);
+        padding: 12px;
+        display: grid;
+        align-content: space-between;
+      }
+
+      .summary-card span {
+        color: var(--color-muted);
+        font-weight: 800;
+      }
+
+      .summary-card strong {
+        font-size: 1.12rem;
+      }
+
+      .detail-columns {
+        display: grid;
+        grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.2fr);
+        gap: 12px;
+      }
+
+      .metric-list,
+      .record-list {
+        display: grid;
+        gap: 8px;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .metric-list li,
+      .record-list li {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        border-top: 1px solid var(--color-line);
+        padding-top: 8px;
+      }
+
+      .metric-list li:first-child,
+      .record-list li:first-child {
+        border-top: 0;
+        padding-top: 0;
+      }
+
+      .metric-list span,
+      .record-list span {
+        color: var(--color-muted);
+      }
+
+      .split-layout {
+        display: grid;
+        grid-template-columns: 280px minmax(0, 1fr);
+        gap: 16px;
+      }
+
+      .month-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .month-board {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+      }
+
+      .year-summary {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .year-stat {
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-md);
+        background: var(--color-surface);
+        padding: 12px;
+      }
+
+      .year-stat span {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--color-muted);
+        font-weight: 800;
+      }
+
+      @media (max-width: 860px) {
+        .sample-header,
+        .app-top,
+        .detail-head {
+          flex-direction: column;
+        }
+
+        .month-chips,
+        .summary-grid,
+        .detail-columns,
+        .split-layout,
+        .month-board,
+        .year-summary {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header class="intro">
+        <p class="eyebrow">대시보드 월 선택 UX</p>
+        <h1>등록된 월을 선택해 상세 대시보드 보기</h1>
+        <p>
+          세 시안 모두 등록된 월을 먼저 보여주고, 월을 클릭하면 현재 기획된 월별 요약, 카테고리 지출,
+          지출 목록을 같은 화면에서 갱신하는 흐름입니다.
+        </p>
+      </header>
+
+      <section class="samples">
+        <article class="sample">
+          <header class="sample-header">
+            <div>
+              <h2>시안 A. 상단 월 칩 + 하단 상세</h2>
+              <p>현재 대시보드 구조를 가장 적게 흔드는 방식입니다. 월이 많지 않을 때 빠르게 스캔하기 좋습니다.</p>
+            </div>
+            <span class="tag">추천: 단순/빠른 적용</span>
+          </header>
+          <div class="mock" data-option="chips"></div>
+        </article>
+
+        <article class="sample">
+          <header class="sample-header">
+            <div>
+              <h2>시안 B. 좌측 월 목록 + 우측 상세</h2>
+              <p>등록 월이 늘어나도 안정적입니다. 데스크톱에서 월 선택과 상세 비교가 가장 명확합니다.</p>
+            </div>
+            <span class="tag">추천: 장기 사용</span>
+          </header>
+          <div class="mock" data-option="split"></div>
+        </article>
+
+        <article class="sample">
+          <header class="sample-header">
+            <div>
+              <h2>시안 C. 연간 월 보드 + 선택 상세</h2>
+              <p>한 해의 흐름을 먼저 보고 특정 월로 들어가는 방식입니다. 월별 패턴을 보는 재미가 있습니다.</p>
+            </div>
+            <span class="tag">추천: 분석 중심</span>
+          </header>
+          <div class="mock" data-option="board"></div>
+        </article>
+      </section>
+    </main>
+
+    <script>
+      const months = [
+        {
+          id: '2026-06',
+          label: '2026년 06월',
+          income: 3000000,
+          spending: 1248000,
+          categories: [
+            ['점심/외식', 412000],
+            ['생활비', 286000],
+            ['교통', 95000]
+          ],
+          records: [
+            ['2026-06-27', '점심', '점심/외식', 12000],
+            ['2026-06-25', '장보기', '장보기/식재료', 68000],
+            ['2026-06-23', '버스 충전', '교통', 30000]
+          ]
+        },
+        {
+          id: '2026-05',
+          label: '2026년 05월',
+          income: 3000000,
+          spending: 1582000,
+          categories: [
+            ['고정비', 720000],
+            ['데이트/여가', 320000],
+            ['생활비', 260000]
+          ],
+          records: [
+            ['2026-05-31', '관리비', '고정비', 180000],
+            ['2026-05-26', '영화', '데이트/여가', 36000],
+            ['2026-05-21', '생활용품', '생활비', 54000]
+          ]
+        },
+        {
+          id: '2026-04',
+          label: '2026년 04월',
+          income: 2850000,
+          spending: 970000,
+          categories: [
+            ['점심/외식', 310000],
+            ['건강', 130000],
+            ['선물/경조사', 110000]
+          ],
+          records: [
+            ['2026-04-29', '외식', '점심/외식', 42000],
+            ['2026-04-18', '약국', '건강', 18000],
+            ['2026-04-10', '생일 선물', '선물/경조사', 80000]
+          ]
+        },
+        {
+          id: '2026-03',
+          label: '2026년 03월',
+          income: 2800000,
+          spending: 1320000,
+          categories: [
+            ['교통', 210000],
+            ['생활비', 360000],
+            ['기타', 95000]
+          ],
+          records: [
+            ['2026-03-30', '택시', '교통', 18000],
+            ['2026-03-22', '생활용품', '생활비', 43000],
+            ['2026-03-14', '수리비', '기타', 95000]
+          ]
+        }
+      ];
+
+      const won = (value) => `${value.toLocaleString('ko-KR')}원`;
+      const ratio = (month) => `${Math.round((month.spending / month.income) * 100)}%`;
+
+      function monthButton(month, active, className) {
+        return `
+          <button type="button" class="${className} ${active ? 'active' : ''}" data-month="${month.id}">
+            <strong>${month.label}</strong>
+            <span>지출 ${won(month.spending)} · ${ratio(month)}</span>
+          </button>
+        `;
+      }
+
+      function detail(month) {
+        return `
+          <section class="detail-panel">
+            <div class="detail-head">
+              <div>
+                <h3>${month.label} 상세</h3>
+                <p>선택한 월의 현재 대시보드 내용을 그대로 보여줍니다.</p>
+              </div>
+              <strong>${ratio(month)} 사용</strong>
+            </div>
+            <div class="summary-grid">
+              <article class="summary-card"><span>월 수입</span><strong>${won(month.income)}</strong></article>
+              <article class="summary-card"><span>지출</span><strong>${won(month.spending)}</strong></article>
+              <article class="summary-card"><span>남은 금액</span><strong>${won(month.income - month.spending)}</strong></article>
+              <article class="summary-card"><span>지출률</span><strong>${ratio(month)}</strong></article>
+            </div>
+            <div class="detail-columns">
+              <section>
+                <h3>카테고리별 지출</h3>
+                <ul class="metric-list">
+                  ${month.categories.map(([label, amount]) => `<li><span>${label}</span><strong>${won(amount)}</strong></li>`).join('')}
+                </ul>
+              </section>
+              <section>
+                <h3>월별 지출 목록</h3>
+                <ul class="record-list">
+                  ${month.records
+                    .map(
+                      ([date, memo, category, amount]) =>
+                        `<li><div><strong>${memo}</strong><br /><span>${date} · ${category}</span></div><strong>${won(amount)}</strong></li>`
+                    )
+                    .join('')}
+                </ul>
+              </section>
+            </div>
+          </section>
+        `;
+      }
+
+      function renderChips(container, selected = months[0].id) {
+        const month = months.find((item) => item.id === selected) || months[0];
+        container.innerHTML = `
+          <div class="app-top">
+            <div><span>등록된 월</span><h3>월을 먼저 고르고 상세 확인</h3></div>
+          </div>
+          <nav class="month-chips" aria-label="등록된 월">
+            ${months.map((item) => monthButton(item, item.id === month.id, 'month-chip')).join('')}
+          </nav>
+          ${detail(month)}
+        `;
+      }
+
+      function renderSplit(container, selected = months[0].id) {
+        const month = months.find((item) => item.id === selected) || months[0];
+        container.innerHTML = `
+          <div class="split-layout">
+            <aside class="month-list" aria-label="등록된 월">
+              ${months.map((item) => monthButton(item, item.id === month.id, 'month-row')).join('')}
+            </aside>
+            ${detail(month)}
+          </div>
+        `;
+      }
+
+      function renderBoard(container, selected = months[0].id) {
+        const month = months.find((item) => item.id === selected) || months[0];
+        container.innerHTML = `
+          <div class="year-summary">
+            <article class="year-stat"><span>등록 월</span><strong>${months.length}개월</strong></article>
+            <article class="year-stat"><span>평균 지출</span><strong>${won(Math.round(months.reduce((sum, item) => sum + item.spending, 0) / months.length))}</strong></article>
+            <article class="year-stat"><span>현재 선택</span><strong>${month.label}</strong></article>
+          </div>
+          <nav class="month-board" aria-label="등록된 월">
+            ${months.map((item) => monthButton(item, item.id === month.id, 'month-tile')).join('')}
+          </nav>
+          ${detail(month)}
+        `;
+      }
+
+      const renderers = {
+        chips: renderChips,
+        split: renderSplit,
+        board: renderBoard
+      };
+
+      document.querySelectorAll('.mock').forEach((container) => {
+        const option = container.dataset.option;
+        const render = renderers[option];
+        render(container);
+        container.addEventListener('click', (event) => {
+          const button = event.target.closest('[data-month]');
+          if (!button) {
+            return;
+          }
+          render(container, button.dataset.month);
+        });
+      });
+    </script>
+  </body>
+</html>

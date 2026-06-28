@@ -1,5 +1,44 @@
 <template>
   <section class="dashboard-layout">
+    <section class="panel dashboard-period-panel">
+      <div class="section-heading compact">
+        <span>등록 년도</span>
+        <h2>조회할 기간 선택</h2>
+      </div>
+
+      <p v-if="store.registeredYears.length === 0" class="empty-copy">아직 등록된 월이 없습니다.</p>
+      <template v-else>
+        <div class="year-selector" data-testid="dashboard-year-list" aria-label="등록 년도">
+          <button
+            v-for="year in store.registeredYears"
+            :key="year"
+            type="button"
+            class="year-button"
+            :class="{ active: selectedYear === year }"
+            data-testid="dashboard-year"
+            @click="selectYear(year)"
+          >
+            {{ year }}
+          </button>
+        </div>
+
+        <div class="month-chip-list" data-testid="dashboard-month-list" aria-label="등록 월">
+          <button
+            v-for="month in monthsForSelectedYear"
+            :key="month"
+            type="button"
+            class="month-chip"
+            :class="{ active: store.selectedMonth === month }"
+            data-testid="dashboard-month"
+            @click="store.setSelectedMonth(month)"
+          >
+            <strong>{{ formatMonthLabel(month) }}</strong>
+            <span>{{ month }}</span>
+          </button>
+        </div>
+      </template>
+    </section>
+
     <section class="panel dashboard-hero">
       <div class="section-heading compact">
         <span>{{ store.selectedMonth }}</span>
@@ -49,7 +88,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import SummaryCard from './SummaryCard.vue';
 import { categories } from '../domain/categories';
@@ -57,6 +96,11 @@ import type { CategoryId } from '../domain/types';
 import { useBudgetStore } from '../stores/budgetStore';
 
 const store = useBudgetStore();
+const selectedYear = ref(store.selectedMonth.slice(0, 4));
+
+const monthsForSelectedYear = computed(() =>
+  store.registeredMonths.filter((month) => month.startsWith(`${selectedYear.value}-`))
+);
 
 const visibleCategoryTotals = computed(() =>
   categories
@@ -66,6 +110,40 @@ const visibleCategoryTotals = computed(() =>
     }))
     .filter((category) => category.amount > 0)
 );
+
+watch(
+  () => store.selectedMonth,
+  (month) => {
+    const year = month.slice(0, 4);
+
+    if (store.registeredYears.includes(year)) {
+      selectedYear.value = year;
+    }
+  }
+);
+
+watch(
+  () => store.registeredYears,
+  (years) => {
+    if (years.length > 0 && !years.includes(selectedYear.value)) {
+      selectedYear.value = years[0];
+    }
+  },
+  { immediate: true }
+);
+
+function selectYear(year: string): void {
+  selectedYear.value = year;
+  const latestMonth = store.registeredMonths.find((month) => month.startsWith(`${year}-`));
+
+  if (latestMonth) {
+    store.setSelectedMonth(latestMonth);
+  }
+}
+
+function formatMonthLabel(month: string): string {
+  return `${Number(month.slice(5, 7))}월`;
+}
 
 function formatWon(amount: number): string {
   return `${amount.toLocaleString('ko-KR')}원`;

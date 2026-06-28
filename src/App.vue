@@ -32,6 +32,7 @@
 
     <LedgerTab v-if="activeTab === 'input'" />
     <DashboardTab v-else-if="activeTab === 'dashboard'" />
+    <StatisticsTab v-else-if="activeTab === 'statistics'" />
     <PersonMoneyTab v-else />
   </main>
 </template>
@@ -42,13 +43,15 @@ import { ref } from 'vue';
 import DashboardTab from './components/DashboardTab.vue';
 import LedgerTab from './components/LedgerTab.vue';
 import PersonMoneyTab from './components/PersonMoneyTab.vue';
+import StatisticsTab from './components/StatisticsTab.vue';
 import { useBudgetStore } from './stores/budgetStore';
 
-type TabId = 'input' | 'dashboard' | 'people';
+type TabId = 'input' | 'dashboard' | 'statistics' | 'people';
 
 const tabs: Array<{ id: TabId; label: string }> = [
   { id: 'input', label: '입력' },
   { id: 'dashboard', label: '대시보드' },
+  { id: 'statistics', label: '통계' },
   { id: 'people', label: '사람' }
 ];
 

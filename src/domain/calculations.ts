@@ -15,6 +15,17 @@ export interface PersonBalance {
   balance: number;
 }
 
+export interface YearlyExpenseStat {
+  year: string;
+  total: number;
+}
+
+export interface MonthlyExpenseStat {
+  month: string;
+  label: string;
+  total: number;
+}
+
 export function calculateMonthSummary(
   month: string,
   months: Record<string, MonthRecord>,
@@ -77,4 +88,40 @@ export function getCurrentMonth(date = new Date()): string {
 
 export function toMonth(date: string): string {
   return date.slice(0, 7);
+}
+
+export function calculateYearlyExpenseStats(expenses: Expense[]): YearlyExpenseStat[] {
+  const totals = new Map<string, number>();
+
+  for (const expense of expenses) {
+    const year = expense.month.slice(0, 4);
+    totals.set(year, (totals.get(year) ?? 0) + expense.amount);
+  }
+
+  return Array.from(totals, ([year, total]) => ({ year, total })).sort((left, right) =>
+    right.year.localeCompare(left.year)
+  );
+}
+
+export function calculateMonthlyExpenseStats(year: string, expenses: Expense[]): MonthlyExpenseStat[] {
+  const totals = new Map<string, number>();
+
+  for (const expense of expenses) {
+    if (!expense.month.startsWith(`${year}-`)) {
+      continue;
+    }
+
+    totals.set(expense.month, (totals.get(expense.month) ?? 0) + expense.amount);
+  }
+
+  return Array.from({ length: 12 }, (_, index) => {
+    const monthNumber = index + 1;
+    const month = `${year}-${String(monthNumber).padStart(2, '0')}`;
+
+    return {
+      month,
+      label: `${monthNumber}월`,
+      total: totals.get(month) ?? 0
+    };
+  });
 }

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { categories } from './categories';
 import {
+  calculateMonthlyExpenseStats,
   calculateMonthSummary,
   calculatePersonBalances,
+  calculateYearlyExpenseStats,
   createEmptyBudgetData,
   getCurrentMonth,
   toMonth
@@ -113,6 +115,55 @@ describe('budget domain model', () => {
         other: 30_000
       }
     });
+  });
+
+  it('builds yearly and monthly expense statistics from expenses only', () => {
+    const expenses: Expense[] = [
+      {
+        id: 'expense-1',
+        date: '2026-06-10',
+        month: '2026-06',
+        categoryId: 'lunch',
+        amount: 20_000,
+        memo: ''
+      },
+      {
+        id: 'expense-2',
+        date: '2026-06-12',
+        month: '2026-06',
+        categoryId: 'living',
+        amount: 30_000,
+        memo: ''
+      },
+      {
+        id: 'expense-3',
+        date: '2025-04-02',
+        month: '2025-04',
+        categoryId: 'transport',
+        amount: 12_000,
+        memo: ''
+      }
+    ];
+
+    expect(calculateYearlyExpenseStats(expenses)).toEqual([
+      { year: '2026', total: 50_000 },
+      { year: '2025', total: 12_000 }
+    ]);
+
+    expect(calculateMonthlyExpenseStats('2026', expenses)).toEqual([
+      { month: '2026-01', label: '1월', total: 0 },
+      { month: '2026-02', label: '2월', total: 0 },
+      { month: '2026-03', label: '3월', total: 0 },
+      { month: '2026-04', label: '4월', total: 0 },
+      { month: '2026-05', label: '5월', total: 0 },
+      { month: '2026-06', label: '6월', total: 50_000 },
+      { month: '2026-07', label: '7월', total: 0 },
+      { month: '2026-08', label: '8월', total: 0 },
+      { month: '2026-09', label: '9월', total: 0 },
+      { month: '2026-10', label: '10월', total: 0 },
+      { month: '2026-11', label: '11월', total: 0 },
+      { month: '2026-12', label: '12월', total: 0 }
+    ]);
   });
 
   it('ignores settled person records, excludes zero balances, and sorts names by Korean locale', () => {
