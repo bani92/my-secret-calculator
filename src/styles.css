@@ -210,6 +210,23 @@ select:focus-visible,
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.statistics-filter-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 360px);
+  justify-items: stretch;
+  gap: var(--space-3);
+}
+
+.statistics-filter-panel .section-heading {
+  grid-column: 2;
+  margin-bottom: 0;
+}
+
+.statistics-filter-field {
+  grid-column: 2;
+  max-width: 360px;
+}
+
 .yearly-stat-chart,
 .monthly-stat-chart {
   display: grid;
@@ -474,8 +491,15 @@ hr {
   .month-chip-list,
   .summary-grid,
   .statistics-layout .summary-grid,
+  .statistics-filter-panel,
   .dashboard-hero .summary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .statistics-filter-panel .section-heading,
+  .statistics-filter-field {
+    grid-column: 1;
+    max-width: none;
   }
 }
 
