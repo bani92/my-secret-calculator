@@ -4,20 +4,51 @@ import { createPinia, setActivePinia } from 'pinia';
 import { createEmptyBudgetData } from '../domain/calculations';
 import type { BudgetData } from '../domain/types';
 import type { BudgetRepository } from '../storage/budgetRepository';
+import { parseBudgetJson } from '../storage/exportImport';
 import { createBudgetStore, useBudgetStore } from './budgetStore';
 
 class MemoryBudgetRepository implements BudgetRepository {
   savedData: BudgetData | undefined;
+  loadCount = 0;
+  saveCount = 0;
 
   constructor(private data: BudgetData = createEmptyBudgetData()) {}
 
   async load(): Promise<BudgetData> {
+    this.loadCount += 1;
     return this.data;
   }
 
   async save(data: BudgetData): Promise<void> {
+    this.saveCount += 1;
     this.savedData = structuredClone(data);
     this.data = structuredClone(data);
+  }
+}
+
+class FlakyLoadBudgetRepository extends MemoryBudgetRepository {
+  async load(): Promise<BudgetData> {
+    this.loadCount += 1;
+
+    if (this.loadCount === 1) {
+      throw new Error('load failed');
+    }
+
+    return {
+      version: 1,
+      months: {
+        '2026-06': { month: '2026-06', income: 700_000 }
+      },
+      expenses: [],
+      personRecords: []
+    };
+  }
+}
+
+class FailingSaveBudgetRepository extends MemoryBudgetRepository {
+  async save(): Promise<void> {
+    this.saveCount += 1;
+    throw new Error('save failed');
   }
 }
 
@@ -95,6 +126,53 @@ describe('useBudgetStore', () => {
     expect(store.data.months['2026-06'].income).toBe(3_000_000);
     expect(repository.savedData?.months['2026-05'].income).toBe(900_000);
     expect(repository.savedData?.months['2026-06'].income).toBe(3_000_000);
+  });
+
+  test('initialize can retry after a load failure', async () => {
+    const repository = new FlakyLoadBudgetRepository();
+    const { store } = createBudgetStoreForTest(repository);
+
+    await expect(store.initialize()).rejects.toThrow('load failed');
+
+    expect(store.isLoaded).toBe(false);
+    expect(store.loadError).toBe('가계부를 불러오지 못했습니다.');
+
+    await store.initialize();
+
+    expect(repository.loadCount).toBe(2);
+    expect(store.isLoaded).toBe(true);
+    expect(store.loadError).toBe('');
+    expect(store.data.months['2026-06'].income).toBe(700_000);
+  });
+
+  test('exports repository data even when called before explicit initialization', async () => {
+    const existingData: BudgetData = {
+      version: 1,
+      months: {
+        '2026-06': { month: '2026-06', income: 1_200_000 }
+      },
+      expenses: [],
+      personRecords: []
+    };
+    const repository = new MemoryBudgetRepository(existingData);
+    const { store } = createBudgetStoreForTest(repository);
+
+    const exported = await store.exportJson();
+
+    expect(repository.loadCount).toBe(1);
+    expect(parseBudgetJson(exported).months['2026-06'].income).toBe(1_200_000);
+  });
+
+  test('does not commit income in memory when persistence fails', async () => {
+    const { store } = createBudgetStoreForTest(new FailingSaveBudgetRepository());
+    await store.initialize();
+
+    store.setSelectedMonth('2026-06');
+
+    await expect(store.setIncome(3_000_000)).rejects.toThrow('save failed');
+
+    expect(store.data.months['2026-06']).toBeUndefined();
+    expect(store.monthSummary.income).toBe(0);
   });
 
   test('adds, lists, summarizes, and deletes expenses for the selected month', async () => {
@@ -214,7 +292,7 @@ describe('useBudgetStore', () => {
     store.setSelectedMonth('2026-06');
     await store.setIncome(1_000_000);
 
-    const exported = store.exportJson();
+    const exported = await store.exportJson();
     const { store: nextStore } = createBudgetStoreForTest(repository);
     await nextStore.initialize();
     await nextStore.importJson(exported);

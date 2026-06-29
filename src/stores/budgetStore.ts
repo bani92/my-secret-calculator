@@ -16,12 +16,14 @@ import { parseBudgetJson, stringifyBudgetData } from '../storage/exportImport';
 import { IndexedDbBudgetRepository } from '../storage/indexedDbBudgetRepository';
 
 const newId = (): string => crypto.randomUUID();
+const cloneBudgetData = (budgetData: BudgetData): BudgetData => parseBudgetJson(stringifyBudgetData(budgetData));
 
 export function createBudgetStore(repository: BudgetRepository) {
   return defineStore('budget', () => {
     const selectedMonth = ref(getCurrentMonth());
     const data = ref<BudgetData>(createEmptyBudgetData());
     const isLoaded = ref(false);
+    const loadError = ref('');
     let initializePromise: Promise<void> | undefined;
 
     const monthSummary = computed(() =>
@@ -51,10 +53,19 @@ export function createBudgetStore(repository: BudgetRepository) {
     const personBalances = computed(() => calculatePersonBalances(data.value.personRecords));
 
     const initialize = async (): Promise<void> => {
-      initializePromise ??= repository.load().then((loadedData) => {
-        data.value = loadedData;
-        isLoaded.value = true;
-      });
+      initializePromise ??= repository
+        .load()
+        .then((loadedData) => {
+          data.value = loadedData;
+          isLoaded.value = true;
+          loadError.value = '';
+        })
+        .catch((error: unknown) => {
+          initializePromise = undefined;
+          isLoaded.value = false;
+          loadError.value = '가계부를 불러오지 못했습니다.';
+          throw error;
+        });
 
       await initializePromise;
     };
@@ -65,8 +76,11 @@ export function createBudgetStore(repository: BudgetRepository) {
       }
     };
 
-    const persist = async (): Promise<void> => {
-      await repository.save(parseBudgetJson(stringifyBudgetData(data.value)));
+    const saveNextData = async (nextData: BudgetData): Promise<void> => {
+      const validatedData = cloneBudgetData(nextData);
+
+      await repository.save(validatedData);
+      data.value = validatedData;
     };
 
     const setSelectedMonth = (month: string): void => {
@@ -75,8 +89,10 @@ export function createBudgetStore(repository: BudgetRepository) {
 
     const setIncome = async (income: number): Promise<void> => {
       await ensureInitialized();
-      data.value.months[selectedMonth.value] = { month: selectedMonth.value, income };
-      await persist();
+      const nextData = cloneBudgetData(data.value);
+
+      nextData.months[selectedMonth.value] = { month: selectedMonth.value, income };
+      await saveNextData(nextData);
     };
 
     const addExpense = async (payload: {
@@ -86,7 +102,9 @@ export function createBudgetStore(repository: BudgetRepository) {
       memo: string;
     }): Promise<void> => {
       await ensureInitialized();
-      data.value.expenses.push({
+      const nextData = cloneBudgetData(data.value);
+
+      nextData.expenses.push({
         id: newId(),
         date: payload.date,
         month: toMonth(payload.date),
@@ -94,13 +112,15 @@ export function createBudgetStore(repository: BudgetRepository) {
         amount: payload.amount,
         memo: payload.memo.trim()
       });
-      await persist();
+      await saveNextData(nextData);
     };
 
     const deleteExpense = async (id: string): Promise<void> => {
       await ensureInitialized();
-      data.value.expenses = data.value.expenses.filter((expense) => expense.id !== id);
-      await persist();
+      const nextData = cloneBudgetData(data.value);
+
+      nextData.expenses = nextData.expenses.filter((expense) => expense.id !== id);
+      await saveNextData(nextData);
     };
 
     const getMonthlyExpenseStats = (year: string) => calculateMonthlyExpenseStats(year, data.value.expenses);
@@ -113,7 +133,9 @@ export function createBudgetStore(repository: BudgetRepository) {
       memo: string;
     }): Promise<void> => {
       await ensureInitialized();
-      data.value.personRecords.push({
+      const nextData = cloneBudgetData(data.value);
+
+      nextData.personRecords.push({
         id: newId(),
         date: payload.date,
         personName: payload.personName.trim(),
@@ -122,31 +144,36 @@ export function createBudgetStore(repository: BudgetRepository) {
         memo: payload.memo.trim(),
         settled: false
       });
-      await persist();
+      await saveNextData(nextData);
     };
 
     const togglePersonRecordSettled = async (id: string): Promise<void> => {
       await ensureInitialized();
-      const record = data.value.personRecords.find((item) => item.id === id);
+      const nextData = cloneBudgetData(data.value);
+      const record = nextData.personRecords.find((item) => item.id === id);
 
       if (record) {
         record.settled = !record.settled;
-        await persist();
+        await saveNextData(nextData);
       }
     };
 
-    const exportJson = (): string => stringifyBudgetData(data.value);
+    const exportJson = async (): Promise<string> => {
+      await ensureInitialized();
+
+      return stringifyBudgetData(data.value);
+    };
 
     const importJson = async (raw: string): Promise<void> => {
       await ensureInitialized();
-      data.value = parseBudgetJson(raw);
-      await persist();
+      await saveNextData(parseBudgetJson(raw));
     };
 
     return {
       selectedMonth,
       data,
       isLoaded,
+      loadError,
       monthSummary,
       monthExpenses,
       registeredMonths,

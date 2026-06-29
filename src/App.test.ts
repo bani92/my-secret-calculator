@@ -6,6 +6,7 @@ import { nextTick } from 'vue';
 import App from './App.vue';
 
 const indexedDbData = new Map<string, unknown>();
+let indexedDbWritesShouldFail = false;
 
 type TestIdbRequest<T> = IDBRequest<T> & {
   onupgradeneeded?: ((event: IDBVersionChangeEvent) => void) | null;
@@ -29,7 +30,7 @@ function installIndexedDbTestDouble(): void {
     createObjectStore: () => undefined,
     transaction: () => {
       const transaction = {
-        error: null,
+        error: null as DOMException | null,
         oncomplete: null,
         onerror: null,
         onabort: null,
@@ -41,6 +42,16 @@ function installIndexedDbTestDouble(): void {
             return request;
           },
           put: (value: unknown, key: string) => {
+            if (indexedDbWritesShouldFail) {
+              queueMicrotask(() => {
+                transaction.error = new DOMException('save failed');
+                const onerror = transaction.onerror as ((event: Event) => void) | null;
+                onerror?.({} as Event);
+              });
+
+              return;
+            }
+
             indexedDbData.set(key, value);
             queueMicrotask(() => {
               const oncomplete = transaction.oncomplete as ((event: Event) => void) | null;
@@ -91,6 +102,7 @@ describe('App', () => {
   beforeEach(() => {
     localStorage.clear();
     indexedDbData.clear();
+    indexedDbWritesShouldFail = false;
     installIndexedDbTestDouble();
     setActivePinia(createPinia());
 
@@ -339,6 +351,7 @@ describe('App', () => {
     const wrapper = await mountLoadedApp();
 
     await wrapper.findAll('button').find((button) => button.text() === '내보내기')?.trigger('click');
+    await flushAsyncActions();
 
     expect(wrapper.text()).toContain('백업 파일을 내보냈습니다.');
 
@@ -346,5 +359,44 @@ describe('App', () => {
     await nextTick();
 
     expect(wrapper.text()).not.toContain('백업 파일을 내보냈습니다.');
+  });
+
+  test('does not expose backup actions before data is loaded', async () => {
+    const wrapper = mount(App, { global: { plugins: [createPinia()] } });
+
+    expect(wrapper.text()).toContain('가계부를 불러오는 중입니다');
+    expect(wrapper.findAll('button').some((button) => button.text() === '내보내기')).toBe(false);
+    expect(wrapper.find('input[type="file"]').exists()).toBe(false);
+
+    await flushPromises();
+
+    expect(wrapper.findAll('button').some((button) => button.text() === '내보내기')).toBe(true);
+    expect(wrapper.find('input[type="file"]').exists()).toBe(true);
+  });
+
+  test('shows a persistence failure message when import cannot be saved', async () => {
+    const wrapper = await mountLoadedApp();
+    const validBackup = JSON.stringify({
+      version: 1,
+      months: {
+        '2026-06': { month: '2026-06', income: 500_000 }
+      },
+      expenses: [],
+      personRecords: []
+    });
+    const file = new File([validBackup], 'backup.json', { type: 'application/json' });
+    const input = wrapper.get<HTMLInputElement>('input[type="file"]');
+
+    indexedDbWritesShouldFail = true;
+    Object.defineProperty(input.element, 'files', {
+      configurable: true,
+      value: [file]
+    });
+
+    await input.trigger('change');
+    await flushAsyncActions();
+
+    expect(wrapper.text()).toContain('백업 파일을 저장하지 못했습니다.');
+    expect(wrapper.text()).not.toContain('지원하지 않는 백업 파일입니다.');
   });
 });
