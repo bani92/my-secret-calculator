@@ -375,13 +375,40 @@ describe('App', () => {
   });
 
   test('shows a persistence failure message when import cannot be saved', async () => {
+    indexedDbData.set('current', {
+      version: 1,
+      months: {
+        '2026-06': { month: '2026-06', income: 100_000 }
+      },
+      expenses: [
+        {
+          id: 'existing-expense',
+          date: '2026-06-10',
+          month: '2026-06',
+          categoryId: 'lunch',
+          amount: 10_000,
+          memo: 'existing lunch'
+        }
+      ],
+      personRecords: []
+    });
+
     const wrapper = await mountLoadedApp();
     const validBackup = JSON.stringify({
       version: 1,
       months: {
         '2026-06': { month: '2026-06', income: 500_000 }
       },
-      expenses: [],
+      expenses: [
+        {
+          id: 'imported-expense',
+          date: '2026-06-11',
+          month: '2026-06',
+          categoryId: 'transport',
+          amount: 20_000,
+          memo: 'imported bus'
+        }
+      ],
       personRecords: []
     });
     const file = new File([validBackup], 'backup.json', { type: 'application/json' });
@@ -395,6 +422,11 @@ describe('App', () => {
 
     await input.trigger('change');
     await flushAsyncActions();
+
+    expect(wrapper.text()).toContain('100,000');
+    expect(wrapper.text()).toContain('existing lunch');
+    expect(wrapper.text()).not.toContain('500,000');
+    expect(wrapper.text()).not.toContain('imported bus');
 
     expect(wrapper.text()).toContain('백업 파일을 저장하지 못했습니다.');
     expect(wrapper.text()).not.toContain('지원하지 않는 백업 파일입니다.');

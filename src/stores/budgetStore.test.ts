@@ -301,6 +301,55 @@ describe('useBudgetStore', () => {
     expect(repository.savedData?.months['2026-06'].income).toBe(1_000_000);
   });
 
+  test('rejects failed imports without replacing current data in memory', async () => {
+    const existingData: BudgetData = {
+      version: 1,
+      months: {
+        '2026-06': { month: '2026-06', income: 100_000 }
+      },
+      expenses: [
+        {
+          id: 'existing-expense',
+          date: '2026-06-10',
+          month: '2026-06',
+          categoryId: 'lunch',
+          amount: 10_000,
+          memo: 'existing lunch'
+        }
+      ],
+      personRecords: []
+    };
+    const importedBackup = JSON.stringify({
+      version: 1,
+      months: {
+        '2026-06': { month: '2026-06', income: 500_000 }
+      },
+      expenses: [
+        {
+          id: 'imported-expense',
+          date: '2026-06-11',
+          month: '2026-06',
+          categoryId: 'transport',
+          amount: 20_000,
+          memo: 'imported bus'
+        }
+      ],
+      personRecords: []
+    });
+    const { repository, store } = createBudgetStoreForTest(new FailingSaveBudgetRepository(existingData));
+
+    await store.initialize();
+    store.setSelectedMonth('2026-06');
+
+    await expect(store.importJson(importedBackup)).rejects.toThrow('save failed');
+
+    expect(repository.saveCount).toBe(1);
+    expect(store.data).toEqual(existingData);
+    expect(store.monthSummary.income).toBe(100_000);
+    expect(store.monthExpenses).toHaveLength(1);
+    expect(store.monthExpenses[0].memo).toBe('existing lunch');
+  });
+
   test('default store uses the production store definition', () => {
     const store = useBudgetStore();
 
