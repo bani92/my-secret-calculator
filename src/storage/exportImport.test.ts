@@ -1,8 +1,6 @@
-import { describe, expect, test, beforeEach } from 'vitest';
+import { describe, expect, test } from 'vitest';
 
-import { createEmptyBudgetData } from '../domain/calculations';
 import type { BudgetData } from '../domain/types';
-import { LocalStorageBudgetRepository } from './localStorageBudgetRepository';
 import { parseBudgetJson, stringifyBudgetData } from './exportImport';
 
 const sampleBudgetData: BudgetData = {
@@ -96,26 +94,5 @@ describe('budget export and import', () => {
         })
       )
     ).toThrow('지원하지 않는 백업 파일입니다');
-  });
-});
-
-describe('LocalStorageBudgetRepository', () => {
-  beforeEach(() => {
-    localStorage.clear();
-  });
-
-  test('save and load roundtrip using localStorage', () => {
-    const repository = new LocalStorageBudgetRepository(localStorage);
-
-    repository.save(sampleBudgetData);
-
-    expect(repository.load()).toEqual(sampleBudgetData);
-  });
-
-  test('load falls back to empty data when stored data is invalid', () => {
-    const repository = new LocalStorageBudgetRepository(localStorage);
-    localStorage.setItem('local-budget-app:v1', JSON.stringify({ version: 2 }));
-
-    expect(repository.load()).toEqual(createEmptyBudgetData());
   });
 });

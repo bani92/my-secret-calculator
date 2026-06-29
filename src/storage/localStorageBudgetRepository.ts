@@ -8,7 +8,7 @@ const storageKey = 'local-budget-app:v1';
 export class LocalStorageBudgetRepository implements BudgetRepository {
   constructor(private readonly storage: Storage = localStorage) {}
 
-  load(): BudgetData {
+  async load(): Promise<BudgetData> {
     const raw = this.storage.getItem(storageKey);
 
     if (raw === null) {
@@ -22,7 +22,7 @@ export class LocalStorageBudgetRepository implements BudgetRepository {
     }
   }
 
-  save(data: BudgetData): void {
+  async save(data: BudgetData): Promise<void> {
     this.storage.setItem(storageKey, stringifyBudgetData(data));
   }
 }
