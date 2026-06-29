@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192" role="img" aria-labelledby="title">
+  <title>로컬 가계부 아이콘</title>
+  <rect width="192" height="192" rx="42" fill="#2864a6" />
+  <rect x="44" y="38" width="104" height="122" rx="18" fill="#ffffff" />
+  <rect x="58" y="56" width="76" height="12" rx="6" fill="#ccd8e1" />
+  <rect x="58" y="82" width="76" height="12" rx="6" fill="#ccd8e1" />
+  <circle cx="126" cy="126" r="28" fill="#d08b45" />
+  <path d="M112 126h28M126 112v28" stroke="#ffffff" stroke-width="10" stroke-linecap="round" />
+</svg>
