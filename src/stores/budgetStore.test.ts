@@ -76,6 +76,27 @@ describe('useBudgetStore', () => {
     expect(repository.savedData?.months['2026-06'].income).toBe(3_000_000);
   });
 
+  test('mutation actions wait for initialization before saving', async () => {
+    const existingData: BudgetData = {
+      version: 1,
+      months: {
+        '2026-05': { month: '2026-05', income: 900_000 }
+      },
+      expenses: [],
+      personRecords: []
+    };
+    const { repository, store } = createBudgetStoreForTest(new MemoryBudgetRepository(existingData));
+
+    store.setSelectedMonth('2026-06');
+    await store.setIncome(3_000_000);
+
+    expect(store.isLoaded).toBe(true);
+    expect(store.data.months['2026-05'].income).toBe(900_000);
+    expect(store.data.months['2026-06'].income).toBe(3_000_000);
+    expect(repository.savedData?.months['2026-05'].income).toBe(900_000);
+    expect(repository.savedData?.months['2026-06'].income).toBe(3_000_000);
+  });
+
   test('adds, lists, summarizes, and deletes expenses for the selected month', async () => {
     const { store } = createBudgetStoreForTest();
     await store.initialize();

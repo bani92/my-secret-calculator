@@ -127,8 +127,8 @@ function updateIncome(event: Event): void {
   incomeDraft.value = formatMoneyInput((event.target as HTMLInputElement).value);
 }
 
-function saveIncome(): void {
-  store.setIncome(parseMoneyInput(incomeDraft.value));
+async function saveIncome(): Promise<void> {
+  await store.setIncome(parseMoneyInput(incomeDraft.value));
   incomeDraft.value = '';
 }
 
@@ -136,14 +136,14 @@ function updateExpenseAmount(event: Event): void {
   expenseAmountDraft.value = formatMoneyInput((event.target as HTMLInputElement).value);
 }
 
-function submitExpense(): void {
+async function submitExpense(): Promise<void> {
   const amount = parseMoneyInput(expenseAmountDraft.value);
 
   if (amount <= 0) {
     return;
   }
 
-  store.addExpense({ ...expenseForm, amount });
+  await store.addExpense({ ...expenseForm, amount });
   store.setSelectedMonth(toMonth(expenseForm.date));
   incomeDraft.value = formatMoneyInput(String(store.monthSummary.income));
   expenseAmountDraft.value = '';

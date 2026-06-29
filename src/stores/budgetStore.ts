@@ -22,6 +22,7 @@ export function createBudgetStore(repository: BudgetRepository) {
     const selectedMonth = ref(getCurrentMonth());
     const data = ref<BudgetData>(createEmptyBudgetData());
     const isLoaded = ref(false);
+    let initializePromise: Promise<void> | undefined;
 
     const monthSummary = computed(() =>
       calculateMonthSummary(selectedMonth.value, data.value.months, data.value.expenses)
@@ -50,8 +51,18 @@ export function createBudgetStore(repository: BudgetRepository) {
     const personBalances = computed(() => calculatePersonBalances(data.value.personRecords));
 
     const initialize = async (): Promise<void> => {
-      data.value = await repository.load();
-      isLoaded.value = true;
+      initializePromise ??= repository.load().then((loadedData) => {
+        data.value = loadedData;
+        isLoaded.value = true;
+      });
+
+      await initializePromise;
+    };
+
+    const ensureInitialized = async (): Promise<void> => {
+      if (!isLoaded.value) {
+        await initialize();
+      }
     };
 
     const persist = async (): Promise<void> => {
@@ -63,6 +74,7 @@ export function createBudgetStore(repository: BudgetRepository) {
     };
 
     const setIncome = async (income: number): Promise<void> => {
+      await ensureInitialized();
       data.value.months[selectedMonth.value] = { month: selectedMonth.value, income };
       await persist();
     };
@@ -73,6 +85,7 @@ export function createBudgetStore(repository: BudgetRepository) {
       amount: number;
       memo: string;
     }): Promise<void> => {
+      await ensureInitialized();
       data.value.expenses.push({
         id: newId(),
         date: payload.date,
@@ -85,6 +98,7 @@ export function createBudgetStore(repository: BudgetRepository) {
     };
 
     const deleteExpense = async (id: string): Promise<void> => {
+      await ensureInitialized();
       data.value.expenses = data.value.expenses.filter((expense) => expense.id !== id);
       await persist();
     };
@@ -98,6 +112,7 @@ export function createBudgetStore(repository: BudgetRepository) {
       amount: number;
       memo: string;
     }): Promise<void> => {
+      await ensureInitialized();
       data.value.personRecords.push({
         id: newId(),
         date: payload.date,
@@ -111,6 +126,7 @@ export function createBudgetStore(repository: BudgetRepository) {
     };
 
     const togglePersonRecordSettled = async (id: string): Promise<void> => {
+      await ensureInitialized();
       const record = data.value.personRecords.find((item) => item.id === id);
 
       if (record) {
@@ -122,6 +138,7 @@ export function createBudgetStore(repository: BudgetRepository) {
     const exportJson = (): string => stringifyBudgetData(data.value);
 
     const importJson = async (raw: string): Promise<void> => {
+      await ensureInitialized();
       data.value = parseBudgetJson(raw);
       await persist();
     };

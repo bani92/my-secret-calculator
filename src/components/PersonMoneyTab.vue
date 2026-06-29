@@ -77,7 +77,7 @@
                 type="button"
                 class="secondary-button"
                 data-testid="toggle-settled"
-                @click="store.togglePersonRecordSettled(record.id)"
+                @click="toggleSettled(record.id)"
               >
                 {{ record.settled ? '정산 취소' : '정산 완료' }}
               </button>
@@ -109,17 +109,21 @@ const orderedRecords = computed(() =>
   [...store.data.personRecords].sort((left, right) => right.date.localeCompare(left.date))
 );
 
-function submitRecord(): void {
+async function submitRecord(): Promise<void> {
   const amount = parseMoneyInput(amountDraft.value);
 
   if (!form.personName.trim() || amount <= 0) {
     return;
   }
 
-  store.addPersonRecord({ ...form, amount });
+  await store.addPersonRecord({ ...form, amount });
   form.personName = '';
   amountDraft.value = '';
   form.memo = '';
+}
+
+async function toggleSettled(id: string): Promise<void> {
+  await store.togglePersonRecordSettled(id);
 }
 
 function updateAmount(event: Event): void {

@@ -16,29 +16,35 @@
 
     <p v-if="statusMessage" class="status-message" role="status">{{ statusMessage }}</p>
 
-    <nav class="tabs" aria-label="주요 화면">
-      <button
-        v-for="tab in tabs"
-        :key="tab.id"
-        type="button"
-        class="tab"
-        :class="{ active: activeTab === tab.id }"
-        :aria-selected="activeTab === tab.id"
-        @click="activeTab = tab.id"
-      >
-        {{ tab.label }}
-      </button>
-    </nav>
+    <section v-if="!store.isLoaded" class="panel">
+      <p class="empty-copy">가계부를 불러오는 중입니다.</p>
+    </section>
 
-    <LedgerTab v-if="activeTab === 'input'" />
-    <DashboardTab v-else-if="activeTab === 'dashboard'" />
-    <StatisticsTab v-else-if="activeTab === 'statistics'" />
-    <PersonMoneyTab v-else />
+    <template v-else>
+      <nav class="tabs" aria-label="주요 화면">
+        <button
+          v-for="tab in tabs"
+          :key="tab.id"
+          type="button"
+          class="tab"
+          :class="{ active: activeTab === tab.id }"
+          :aria-selected="activeTab === tab.id"
+          @click="activeTab = tab.id"
+        >
+          {{ tab.label }}
+        </button>
+      </nav>
+
+      <LedgerTab v-if="activeTab === 'input'" />
+      <DashboardTab v-else-if="activeTab === 'dashboard'" />
+      <StatisticsTab v-else-if="activeTab === 'statistics'" />
+      <PersonMoneyTab v-else />
+    </template>
   </main>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 
 import DashboardTab from './components/DashboardTab.vue';
 import LedgerTab from './components/LedgerTab.vue';
@@ -59,6 +65,10 @@ const store = useBudgetStore();
 const activeTab = ref<TabId>('input');
 const statusMessage = ref('');
 let statusTimer: ReturnType<typeof setTimeout> | undefined;
+
+onMounted(() => {
+  void store.initialize();
+});
 
 function showStatus(message: string): void {
   statusMessage.value = message;
@@ -92,7 +102,7 @@ async function importBackup(event: Event): Promise<void> {
   }
 
   try {
-    store.importJson(await file.text());
+    await store.importJson(await file.text());
     showStatus('백업 파일을 가져왔습니다.');
   } catch {
     showStatus('지원하지 않는 백업 파일입니다.');

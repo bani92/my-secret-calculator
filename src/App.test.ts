@@ -1,13 +1,97 @@
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { nextTick } from 'vue';
 
 import App from './App.vue';
 
+const indexedDbData = new Map<string, unknown>();
+
+type TestIdbRequest<T> = IDBRequest<T> & {
+  onupgradeneeded?: ((event: IDBVersionChangeEvent) => void) | null;
+};
+
+function createRequest<T>(result: T): TestIdbRequest<T> {
+  return {
+    result,
+    error: null,
+    onsuccess: null,
+    onerror: null,
+    onupgradeneeded: null
+  } as TestIdbRequest<T>;
+}
+
+function installIndexedDbTestDouble(): void {
+  const database = {
+    objectStoreNames: {
+      contains: () => true
+    },
+    createObjectStore: () => undefined,
+    transaction: () => {
+      const transaction = {
+        error: null,
+        oncomplete: null,
+        onerror: null,
+        onabort: null,
+        objectStore: () => ({
+          get: (key: string) => {
+            const request = createRequest(indexedDbData.get(key));
+            queueMicrotask(() => request.onsuccess?.({} as Event));
+
+            return request;
+          },
+          put: (value: unknown, key: string) => {
+            indexedDbData.set(key, value);
+            queueMicrotask(() => {
+              const oncomplete = transaction.oncomplete as ((event: Event) => void) | null;
+              oncomplete?.({} as Event);
+            });
+          }
+        })
+      };
+
+      return transaction;
+    }
+  };
+
+  const indexedDB = {
+    open: () => {
+      const request = createRequest(database);
+
+      queueMicrotask(() => {
+        request.onupgradeneeded?.({} as IDBVersionChangeEvent);
+        request.onsuccess?.({} as Event);
+      });
+
+      return request;
+    }
+  };
+
+  Object.defineProperty(globalThis, 'indexedDB', {
+    configurable: true,
+    value: indexedDB
+  });
+}
+
+async function mountLoadedApp() {
+  const wrapper = mount(App, { global: { plugins: [createPinia()] } });
+
+  expect(wrapper.text()).toContain('가계부를 불러오는 중입니다');
+  await flushPromises();
+
+  return wrapper;
+}
+
+async function flushAsyncActions(): Promise<void> {
+  await flushPromises();
+  await nextTick();
+}
+
 describe('App', () => {
   beforeEach(() => {
     localStorage.clear();
+    indexedDbData.clear();
+    installIndexedDbTestDouble();
     setActivePinia(createPinia());
 
     let idCounter = 0;
@@ -22,7 +106,7 @@ describe('App', () => {
   });
 
   test('starts on the input tab and records income and expenses', async () => {
-    const wrapper = mount(App, { global: { plugins: [createPinia()] } });
+    const wrapper = await mountLoadedApp();
 
     expect(wrapper.get('[aria-selected="true"]').text()).toBe('입력');
 
@@ -32,6 +116,7 @@ describe('App', () => {
     expect(incomeInput.element.value).toBe('3,000,000');
 
     await wrapper.get('[data-testid="save-income"]').trigger('click');
+    await flushAsyncActions();
 
     expect(incomeInput.element.value).toBe('');
 
@@ -42,21 +127,23 @@ describe('App', () => {
 
     await wrapper.get('[aria-label="지출 메모"]').setValue('점심');
     await wrapper.get('[data-testid="expense-form"]').trigger('submit');
+    await flushAsyncActions();
 
     expect(wrapper.text()).toContain('3,000,000원');
     expect(wrapper.text()).toContain('12,000원');
     expect(wrapper.text()).toContain('점심');
-    expect(localStorage.getItem('local-budget-app:v1')).toContain('"amount": 12000');
   });
 
   test('shows monthly totals on the dashboard tab', async () => {
-    const wrapper = mount(App, { global: { plugins: [createPinia()] } });
+    const wrapper = await mountLoadedApp();
 
     await wrapper.get('[aria-label="월 수입"]').setValue('100000');
     await wrapper.get('[data-testid="save-income"]').trigger('click');
+    await flushAsyncActions();
     await wrapper.get('[aria-label="지출 금액"]').setValue('20000');
     await wrapper.get('[aria-label="지출 메모"]').setValue('외식');
     await wrapper.get('[data-testid="expense-form"]').trigger('submit');
+    await flushAsyncActions();
     await wrapper.findAll('button').find((button) => button.text() === '대시보드')?.trigger('click');
 
     expect(wrapper.text()).toContain('이번 달 요약');
@@ -65,23 +152,27 @@ describe('App', () => {
   });
 
   test('selects a registered year and month from the dashboard', async () => {
-    const wrapper = mount(App, { global: { plugins: [createPinia()] } });
+    const wrapper = await mountLoadedApp();
 
     await wrapper.get('[aria-label="대상 월"]').setValue('2026-06');
     await wrapper.get('[aria-label="월 수입"]').setValue('100000');
     await wrapper.get('[data-testid="save-income"]').trigger('click');
+    await flushAsyncActions();
     await wrapper.get('[aria-label="지출 날짜"]').setValue('2026-06-10');
     await wrapper.get('[aria-label="지출 금액"]').setValue('20000');
     await wrapper.get('[aria-label="지출 메모"]').setValue('6월 지출');
     await wrapper.get('[data-testid="expense-form"]').trigger('submit');
+    await flushAsyncActions();
 
     await wrapper.get('[aria-label="대상 월"]').setValue('2025-04');
     await wrapper.get('[aria-label="월 수입"]').setValue('50000');
     await wrapper.get('[data-testid="save-income"]').trigger('click');
+    await flushAsyncActions();
     await wrapper.get('[aria-label="지출 날짜"]').setValue('2025-04-02');
     await wrapper.get('[aria-label="지출 금액"]').setValue('30000');
     await wrapper.get('[aria-label="지출 메모"]').setValue('4월 지출');
     await wrapper.get('[data-testid="expense-form"]').trigger('submit');
+    await flushAsyncActions();
 
     await wrapper.findAll('button').find((button) => button.text() === '대시보드')?.trigger('click');
 
@@ -102,7 +193,7 @@ describe('App', () => {
   });
 
   test('shows spending statistics by year and selected year months', async () => {
-    const wrapper = mount(App, { global: { plugins: [createPinia()] } });
+    const wrapper = await mountLoadedApp();
 
     await wrapper.findAll('button').find((button) => button.text() === '통계')?.trigger('click');
 
@@ -113,14 +204,17 @@ describe('App', () => {
     await wrapper.get('[aria-label="지출 금액"]').setValue('20000');
     await wrapper.get('[aria-label="지출 메모"]').setValue('6월 지출');
     await wrapper.get('[data-testid="expense-form"]').trigger('submit');
+    await flushAsyncActions();
     await wrapper.get('[aria-label="지출 날짜"]').setValue('2026-04-02');
     await wrapper.get('[aria-label="지출 금액"]').setValue('20000');
     await wrapper.get('[aria-label="지출 메모"]').setValue('4월 지출');
     await wrapper.get('[data-testid="expense-form"]').trigger('submit');
+    await flushAsyncActions();
     await wrapper.get('[aria-label="지출 날짜"]').setValue('2025-04-02');
     await wrapper.get('[aria-label="지출 금액"]').setValue('30000');
     await wrapper.get('[aria-label="지출 메모"]').setValue('작년 4월 지출');
     await wrapper.get('[data-testid="expense-form"]').trigger('submit');
+    await flushAsyncActions();
 
     await wrapper.findAll('button').find((button) => button.text() === '통계')?.trigger('click');
 
@@ -139,25 +233,28 @@ describe('App', () => {
   });
 
   test('filters spending statistics by expense category', async () => {
-    const wrapper = mount(App, { global: { plugins: [createPinia()] } });
+    const wrapper = await mountLoadedApp();
 
     await wrapper.get('[aria-label="지출 날짜"]').setValue('2026-06-10');
     await wrapper.get('[aria-label="지출 분류"]').setValue('lunch');
     await wrapper.get('[aria-label="지출 금액"]').setValue('20000');
     await wrapper.get('[aria-label="지출 메모"]').setValue('점심');
     await wrapper.get('[data-testid="expense-form"]').trigger('submit');
+    await flushAsyncActions();
 
     await wrapper.get('[aria-label="지출 날짜"]').setValue('2026-06-12');
     await wrapper.get('[aria-label="지출 분류"]').setValue('transport');
     await wrapper.get('[aria-label="지출 금액"]').setValue('7000');
     await wrapper.get('[aria-label="지출 메모"]').setValue('버스');
     await wrapper.get('[data-testid="expense-form"]').trigger('submit');
+    await flushAsyncActions();
 
     await wrapper.get('[aria-label="지출 날짜"]').setValue('2025-04-02');
     await wrapper.get('[aria-label="지출 분류"]').setValue('lunch');
     await wrapper.get('[aria-label="지출 금액"]').setValue('30000');
     await wrapper.get('[aria-label="지출 메모"]').setValue('작년 점심');
     await wrapper.get('[data-testid="expense-form"]').trigger('submit');
+    await flushAsyncActions();
 
     await wrapper.findAll('button').find((button) => button.text() === '통계')?.trigger('click');
 
@@ -193,7 +290,7 @@ describe('App', () => {
   });
 
   test('records person money and keeps settled records in history', async () => {
-    const wrapper = mount(App, { global: { plugins: [createPinia()] } });
+    const wrapper = await mountLoadedApp();
 
     await wrapper.findAll('button').find((button) => button.text() === '사람')?.trigger('click');
     await wrapper.get('[aria-label="사람 이름"]').setValue('민수');
@@ -204,18 +301,20 @@ describe('App', () => {
 
     await wrapper.get('[aria-label="사람별 메모"]').setValue('티켓');
     await wrapper.get('[data-testid="person-form"]').trigger('submit');
+    await flushAsyncActions();
 
     expect(wrapper.text()).toContain('받을 돈 50,000원');
 
     await wrapper.get('[data-testid="toggle-settled"]').trigger('click');
+    await flushAsyncActions();
 
     expect(wrapper.text()).toContain('정산 취소');
     expect(wrapper.text()).toContain('티켓');
     expect(wrapper.text()).toContain('현재 미정산 내역이 없습니다');
   });
 
-  test('uses the revised input headings', () => {
-    const wrapper = mount(App, { global: { plugins: [createPinia()] } });
+  test('uses the revised input headings', async () => {
+    const wrapper = await mountLoadedApp();
 
     const headings = wrapper.findAll('h2').map((heading) => heading.text());
 
@@ -237,7 +336,7 @@ describe('App', () => {
     });
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
 
-    const wrapper = mount(App, { global: { plugins: [createPinia()] } });
+    const wrapper = await mountLoadedApp();
 
     await wrapper.findAll('button').find((button) => button.text() === '내보내기')?.trigger('click');
 
