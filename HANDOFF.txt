@@ -1,29 +1,30 @@
 Local Budget App Handoff
-Generated: 2026-06-28
+Generated: 2026-06-29
 Workspace: C:\Users\banse\OneDrive\바탕 화면\time-manager
 
 목적
 ----
-이 프로젝트는 개인용 로컬 가계부 웹 앱이다.
+이 프로젝트는 개인용 로컬 가계부 앱이다.
 
-현재 1차 버전은 Vue 로컬 앱이며, 브라우저 localStorage에 데이터를 저장한다.
-로그인, 클라우드 동기화, 은행/카드 자동 연동, 백엔드는 아직 범위 밖이다.
+현재 앱은 Vue 3 + Vite + TypeScript + Pinia + Vitest 기반의 PWA이다.
+데이터는 서버/클라우드 없이 브라우저 IndexedDB에 저장하며, JSON 내보내기/가져오기로 수동 백업/복원을 지원한다.
+로그인, 클라우드 동기화, 은행/카드 자동 연동, 백엔드 서버는 아직 범위 밖이다.
 
 
 사용자 선호 및 작업 규칙
 -----------------------
-- 현재 폴더에서 직접 작업한다.
-- 별도 git worktree는 만들지 않는다.
-- 사용자는 한국어 응답과 한국어 문서를 원한다.
-- AI 에이전트는 디자인 검토, 코드 리뷰, 독립 작업에 적극적으로 사용한다.
-- 프론트엔드는 Vue 사용 가능. 사용자는 Java, Spring, Vue 경험이 있다.
-- PowerShell은 한글을 mojibake로 보여줄 수 있다. 파일 자체는 UTF-8이다.
-- 한글 파일 내용 확인은 Node로 읽는 것이 안전하다.
-- 변경 구현은 TDD 우선으로 진행한다.
-- UI 작업은 DESIGN.md의 Ocean Blue + Copper 방향을 따른다.
-
-안전한 UTF-8 파일 확인 명령:
-& 'C:\Users\banse\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' -e "const fs=require('fs'); console.log(fs.readFileSync('HANDOFF.txt','utf8'))"
+- 기본 응답과 문서는 한국어로 작성한다.
+- 현재 작업 폴더에서 진행한다. 별도 git worktree는 사용자가 요청하거나 필요성이 분명할 때만 제안한다.
+- 프론트엔드는 Vue 3 + Vite + TypeScript + Pinia + Vitest를 선호한다.
+- 백엔드는 필요 시 Java + Spring Boot를 선호한다.
+- 과한 구조보다 작게 시작하고 나중에 확장 가능한 구조를 선호한다.
+- 구현 전 간단한 설계와 방향을 잡고, 가능한 TDD로 진행한다.
+- 큰 작업은 subagent-driven 방식 선호.
+- 각 단계 끝에는 변경 파일, 검증 결과, 남은 작업을 알려준다.
+- PowerShell에서 한글이 깨져 보일 수 있으므로 실제 파일은 UTF-8로 확인한다.
+- node_modules/와 dist/는 커밋하지 않는다.
+- npm audit fix --force는 임의로 실행하지 않는다.
+- 사용자가 명시하지 않은 기존 변경사항은 되돌리지 않는다.
 
 
 현재 기술 스택
@@ -33,12 +34,15 @@ Workspace: C:\Users\banse\OneDrive\바탕 화면\time-manager
 - TypeScript
 - Pinia
 - Vitest
-- localStorage
+- IndexedDB
+- Web App Manifest
+- Service Worker
+- JSON 백업/복원
 
 
 현재 앱 구조
 ------------
-상단 탭은 현재 4개다.
+상단 탭은 4개다.
 
 1. 입력
    - 월 수입 저장.
@@ -49,7 +53,7 @@ Workspace: C:\Users\banse\OneDrive\바탕 화면\time-manager
 2. 대시보드
    - 등록 년도 선택.
    - 선택 년도에 등록된 월 칩 표시.
-   - 월 칩 클릭 시 기존 월 상세 내용 표시.
+   - 월 칩 클릭 시 해당 월 상세 내용 표시.
    - 월 수입, 지출, 남은 금액, 지출률 표시.
    - 카테고리별 지출과 월별 지출 목록 표시.
 
@@ -57,7 +61,9 @@ Workspace: C:\Users\banse\OneDrive\바탕 화면\time-manager
    - 년도별 총 지출 CSS 막대 그래프.
    - 선택 년도의 월별 지출 CSS 막대 그래프.
    - 총 지출, 지출월 평균, 최고 지출 월 요약 카드.
-   - 최고 지출 월 동률이면 `4월 외 1개월 · 20,000원` 형태로 표시.
+   - `지출 항목` 콤보박스로 전체/카테고리별 통계 필터링.
+   - 필터 제목과 콤보박스는 우측 정렬됨.
+   - 선택 항목에 지출이 없으면 `선택한 항목의 지출 기록이 없습니다.` 표시.
    - 외부 차트 라이브러리는 사용하지 않음.
 
 4. 사람
@@ -66,11 +72,32 @@ Workspace: C:\Users\banse\OneDrive\바탕 화면\time-manager
    - 정산 완료 기록은 현재 미정산 잔액에서만 제외.
 
 
+저장 및 PWA 구조
+----------------
+- production store는 `IndexedDbBudgetRepository`를 사용한다.
+- IndexedDB:
+  - DB 이름: `local-budget-app`
+  - object store: `budget`
+  - key: `current`
+  - 저장 값: `BudgetData` 전체 스냅샷
+- localStorage 자동 이관은 하지 않는다. 사용자가 기존 데이터는 테스트 데이터라서 자동 이관 불필요하다고 결정했다.
+- JSON 백업/복원은 유지한다.
+- 저장 액션은 저장소 save 성공 후에만 store 메모리 상태를 커밋한다.
+- import 저장 실패 시 가져온 데이터가 화면/store에 남지 않도록 테스트가 있다.
+- `initialize()`는 동시 호출에 대해 idempotent이며, load 실패 후 재시도 가능하다.
+- PWA 자산:
+  - `public/manifest.webmanifest`
+  - `public/sw.js`
+  - `public/icons/icon-192.svg`
+  - `public/icons/icon-512.svg`
+- `src/main.ts`에서 `/sw.js` service worker를 window load 후 등록한다.
+
+
 디자인 방향
 -----------
 Palette: Ocean Blue + Copper
 
-중요 토큰은 DESIGN.md와 src/styles.css에 있다.
+주요 토큰은 DESIGN.md와 src/styles.css에 있다.
 
 주요 토큰:
 --color-bg: #eef4f7
@@ -94,161 +121,143 @@ Palette: Ocean Blue + Copper
 - 막대 그래프 금액은 막대 안이 아니라 별도 텍스트로 둔다.
 
 
-중요 문서 및 샘플
------------------
+중요 문서
+---------
 - DESIGN.md
 - HANDOFF.txt
-- docs/superpowers/specs/2026-06-27-local-budget-app-design.md
-- docs/superpowers/plans/2026-06-27-local-budget-app.md
-- docs/superpowers/specs/2026-06-27-spending-statistics-tab-design.md
-- docs/superpowers/plans/2026-06-27-spending-statistics-tab.md
 - docs/superpowers/specs/2026-06-28-category-statistics-filter-design.md
-- docs/ui-samples/budget-ui-options.html
-- docs/ui-samples/month-dashboard-options.html
-- docs/ui-samples/category-statistics-options.html
-
-현재 항목별 통계 필터 목업 URL:
-http://127.0.0.1:5173/docs/ui-samples/category-statistics-options.html
+- docs/superpowers/plans/2026-06-28-category-statistics-filter.md
+- docs/superpowers/specs/2026-06-28-pwa-indexeddb-backup-design.md
+- docs/superpowers/plans/2026-06-28-pwa-indexeddb-backup.md
 
 
 최근 완료된 작업
 ----------------
-1. 대시보드 년도/월 선택 개선 완료.
-   - 등록 년도 선택.
-   - 년도 선택 후 해당 년도 월 칩 표시.
-   - 월 클릭 시 상세 내용 변경.
+1. 항목별 통계 필터 구현 완료.
+   - `StatisticsTab.vue`에 `지출 항목` 콤보박스 추가.
+   - 전체 지출/카테고리별 필터 적용.
+   - 년도별 그래프, 요약 카드, 월별 그래프가 필터 기준으로 변경됨.
+   - 필터 소제목과 콤보박스를 우측 끝으로 정렬.
 
-2. 통계 탭 1차 구현 완료.
-   - 년도별 총 지출.
-   - 월별 지출 흐름.
-   - 총 지출, 지출월 평균, 최고 지출 월.
-   - 코드 리뷰 에이전트가 지적한 `월 평균` 의미와 최고 지출 월 동률 표현은 반영 완료.
+2. IndexedDB 저장소 추가 완료.
+   - `src/storage/budgetRepository.ts`가 Promise 기반 계약으로 변경됨.
+   - `src/storage/indexedDbBudgetRepository.ts` 추가.
+   - localStorage 저장소는 테스트/개발 보조용 비동기 구현으로 유지.
 
-3. 항목별 통계 필터 설계 완료.
-   - 사용자가 시안 A를 선택함.
-   - 방향: 통계 탭 상단에 `지출 항목` 콤보박스 추가.
-   - 기본값: `전체 지출`.
-   - 특정 항목 선택 시 년도별 그래프, 요약 카드, 월별 그래프가 모두 해당 항목 기준으로 변경.
-   - 특정 항목에 지출이 없으면 `선택한 항목의 지출 기록이 없습니다.` 표시.
-   - 여러 항목 동시 선택, 항목 순위, 비교 대시보드, 파이 차트는 후속 확장으로 제외.
+3. Pinia store 비동기 초기화 완료.
+   - `createBudgetStore(repository)`로 저장소 주입 가능.
+   - production `useBudgetStore`는 IndexedDB repository 사용.
+   - `isLoaded`, `loadError`, `initialize()` 도입.
+   - mutation action은 초기화 완료 후 동작.
 
+4. App async UX 보강 완료.
+   - 앱 시작 시 `store.initialize()` 호출.
+   - 로딩 중 `가계부를 불러오는 중입니다.` 표시.
+   - 로딩 완료 전 백업 액션 숨김.
+   - import/export가 async 저장 흐름에 맞게 변경됨.
+   - 저장 실패와 import 실패 메시지 분리.
 
-항목별 통계 필터 설계 상세
---------------------------
-설계 문서:
-docs/superpowers/specs/2026-06-28-category-statistics-filter-design.md
-
-선택한 시안:
-시안 A. 통계 전체에 항목 필터 적용
-
-UX:
-- 통계 탭 최상단에 필터 패널 추가.
-- 제목: `통계 기준`
-- 콤보박스 라벨: `지출 항목`
-- 선택 옵션:
-  - 전체 지출
-  - 점심/외식
-  - 생활비
-  - 고정비
-  - 데이트/여가
-  - 장보기/식재료
-  - 교통
-  - 의료/건강
-  - 선물/경조사
-  - 기타
-
-데이터:
-- 저장 구조 변경 없음.
-- 기존 Expense.categoryId 기준으로 필터링.
-- `all`은 전체 지출.
-- `CategoryId`는 특정 항목.
-
-구현 방향:
-- `StatisticsTab.vue`에 `selectedCategoryFilter` 추가.
-- `filteredExpenses`를 만들고 기존 계산 함수에 전달.
-- 기존 함수 재사용 가능:
-  - calculateYearlyExpenseStats(filteredExpenses)
-  - calculateMonthlyExpenseStats(selectedYear, filteredExpenses)
-- 필요하면 store가 아니라 컴포넌트 내부 computed로 시작.
-
-테스트해야 할 동작:
-- 통계 탭에 `지출 항목` 콤보박스가 표시된다.
-- 기본값은 `전체 지출`이다.
-- 전체 지출 선택 시 기존 전체 통계가 표시된다.
-- 특정 항목 선택 시 년도별 그래프, 요약 카드, 월별 그래프가 해당 항목 기준으로 바뀐다.
-- 선택 항목에 지출이 없으면 `선택한 항목의 지출 기록이 없습니다.` 표시.
-- 기존 통계 탭/대시보드 테스트가 계속 통과한다.
-
-
-검증 결과
----------
-항목별 필터 구현 전 마지막 검증:
-- npm run test 통과.
-- npm run build 통과.
-- 브라우저에서 통계 탭 확인 완료.
-- 브라우저에서 항목별 통계 필터 목업 확인 완료.
-
-목업 페이지 상태:
-- URL 응답 200 확인.
-- 브라우저에 열림.
-- 시안 A/B/C 표시 확인.
-- 시안 A 콤보박스 옵션:
-  - 전체 지출
-  - 점심/외식
-  - 생활비
-  - 교통
+5. PWA 설치 자산 추가 완료.
+   - manifest, SVG 아이콘, service worker 추가.
+   - `index.html`에 manifest/theme-color 연결.
+   - `src/main.ts`에 service worker 등록.
+   - service worker Promise 처리 및 register 실패 catch 반영.
 
 
 최근 커밋
 ---------
-최근 주요 커밋:
-- fb4f89a docs: design category statistics filter
-- 5d52e26 feat: add dashboard period picker and spending statistics
-- 82e139d docs: design spending statistics tab
-- bb7f458 fix: polish budget input UI
-- 7b27a83 feat: add budget app screens
+현재 주요 최신 커밋:
+- f415f0d feat: add pwa install assets
+- 782a881 test: cover failed budget import rollback
+- 2535c50 fix: harden async budget persistence
+- e636cb3 feat: initialize app data asynchronously
+- 7c42958 refactor: load budget store asynchronously
+- 742a9b6 feat: add indexeddb budget repository
+- d8ecfa0 docs: plan pwa indexeddb implementation
+- 597efce docs: update handoff notes
+- aacedcb style: align statistics category filter
+- 492c8b8 feat: add category filter to spending statistics
 
-현재 `fb4f89a`에는 다음이 포함됨:
-- docs/superpowers/specs/2026-06-28-category-statistics-filter-design.md
-- docs/ui-samples/category-statistics-options.html
+
+검증 결과
+---------
+마지막 전체 검증:
+- `npm run test` 통과.
+  - 6 files passed.
+  - 40 tests passed.
+- `npm run build` 통과.
+  - `vue-tsc --noEmit && vite build` 성공.
+- `dist` 산출물 확인 완료.
+  - `dist/manifest.webmanifest`
+  - `dist/sw.js`
+  - `dist/icons/icon-192.svg`
+  - `dist/icons/icon-512.svg`
+- 로컬 dev 서버 응답 확인 완료.
+  - `http://127.0.0.1:5173/`
+  - StatusCode 200
 
 
 현재 워킹트리 상태
 ------------------
-핸드오프 업데이트 전 기준으로 워킹트리는 clean 상태였다.
+HANDOFF.txt 업데이트 전에는 워킹트리가 clean이었다.
+이 HANDOFF.txt 업데이트 후에는 `HANDOFF.txt`가 수정된 상태일 수 있다.
+다음 세션에서 먼저 확인할 것:
 
-이 HANDOFF.txt 업데이트 후에는 HANDOFF.txt가 수정된 상태일 수 있다.
-다음 세션에서 먼저 `git status --short`를 확인할 것.
+git status --short
+
+필요하면 HANDOFF.txt만 커밋:
+
+git add HANDOFF.txt
+git commit -m "docs: update handoff after pwa implementation"
+
+
+현재 실행 중일 수 있는 로컬 서버
+-------------------------------
+이번 세션에서 다음 방식으로 dev 서버를 백그라운드 실행했다.
+
+Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-Command','Set-Location "C:\Users\banse\OneDrive\바탕 화면\time-manager"; npm run dev -- --host 127.0.0.1' -WindowStyle Hidden
+
+확인 URL:
+http://127.0.0.1:5173/
+
+주의:
+- 이 서버는 127.0.0.1 바인딩이라 갤럭시 S25에서는 직접 접속할 수 없다.
+- 휴대폰에서 확인하려면 같은 Wi-Fi에서 `--host 0.0.0.0` 또는 PC LAN IP로 다시 띄워야 한다.
 
 
 추천 다음 작업
 --------------
-1. HANDOFF.txt를 읽고 현재 상태 확인.
+1. HANDOFF.txt와 git 상태 확인.
    - `git status --short`
-   - 필요하면 HANDOFF.txt 변경을 커밋.
+   - HANDOFF.txt 변경 커밋 필요 여부 결정.
 
-2. 항목별 통계 필터 구현 계획 작성.
-   - writing-plans skill 사용.
-   - 계획 파일 추천:
-     docs/superpowers/plans/2026-06-28-category-statistics-filter.md
+2. 갤럭시 S25 실기기 확인.
+   - PC와 갤럭시 S25를 같은 Wi-Fi에 연결.
+   - dev 서버를 LAN 접속 가능하게 실행:
+     `npm run dev -- --host 0.0.0.0`
+   - PC IPv4 주소 확인:
+     `ipconfig`
+   - 갤럭시 Chrome에서 `http://<PC_IP>:5173/` 접속.
+   - 홈 화면 추가 가능 여부 확인.
+   - 홈 화면 아이콘으로 실행.
+   - 수입/지출/사람 기록 추가 후 새로고침해도 데이터가 유지되는지 확인.
+   - JSON 내보내기/가져오기 확인.
 
-3. TDD로 구현.
-   - App.test.ts 또는 StatisticsTab 관련 테스트에 필터 동작 추가.
-   - 실패 확인.
-   - StatisticsTab.vue 구현.
-   - 필요하면 계산 함수 테스트 추가.
+3. 브라우저 개발자 도구 확인.
+   - Application > IndexedDB:
+     `local-budget-app` / `budget` / `current`
+   - Application > Manifest:
+     앱 이름 `로컬 가계부`
+   - Application > Service Workers:
+     `/sw.js` 등록 여부
 
-4. 검증.
-   - npm run test
-   - npm run build
-   - 브라우저에서 통계 탭 항목 필터 확인.
-
-5. 코드 리뷰 또는 디자인 리뷰 에이전트 사용.
-   - 특히 모바일 콤보박스/그래프 라벨 잘림 확인.
-
-6. 커밋.
-   - 추천 메시지:
-     feat: add category filter to spending statistics
+4. 후속 개선 후보.
+   - PWA 업데이트 알림 UX.
+   - 백업 파일 이름/복원 확인 모달 개선.
+   - IndexedDB 저장 실패 안내 UI 개선.
+   - 갤럭시 실기기에서 터치 영역/텍스트 줄바꿈 디자인 확인.
+   - 배포가 필요하면 GitHub Pages/Netlify/Vercel 같은 정적 호스팅 검토.
+   - 단, 현재 목표인 서버/클라우드 비용 0원 사용은 로컬 PWA + IndexedDB + JSON 백업으로 충족.
 
 
 유용한 명령
@@ -265,14 +274,17 @@ npm run test
 빌드:
 npm run build
 
-개발 서버:
+로컬 개발 서버:
 npm run dev
 
-목업 열기:
-http://127.0.0.1:5173/docs/ui-samples/category-statistics-options.html
+LAN 접속용 개발 서버:
+npm run dev -- --host 0.0.0.0
+
+로컬 응답 확인:
+Invoke-WebRequest -Uri 'http://127.0.0.1:5173/' -UseBasicParsing | Select-Object -ExpandProperty StatusCode
 
 UTF-8 파일 확인:
-& 'C:\Users\banse\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' -e "const fs=require('fs'); console.log(fs.readFileSync('HANDOFF.txt','utf8'))"
+Get-Content -Raw -Encoding UTF8 .\HANDOFF.txt
 
 
 주의사항
@@ -283,9 +295,9 @@ UTF-8 파일 확인:
 4. 한글은 PowerShell에서 깨져 보여도 파일 자체는 UTF-8일 수 있다.
 5. UI 변경은 DESIGN.md와 기존 스타일 패턴을 따른다.
 6. 통계 탭은 외부 차트 라이브러리를 쓰지 않는 방향이다.
-7. 항목별 필터는 시안 A로 확정됐다. B/C는 후속 확장이다.
+7. localStorage 자동 이관은 하지 않는다. 사용자가 테스트 데이터라 불필요하다고 결정했다.
 
 
 추천 재개 프롬프트
 ------------------
-"HANDOFF.txt를 읽고 현재 워킹트리 상태를 확인해줘. 항목별 통계 필터는 시안 A로 확정했고, 설계 문서와 목업은 fb4f89a에 커밋되어 있어. 이제 writing-plans로 구현 계획을 만들고 TDD로 StatisticsTab에 지출 항목 콤보박스 필터를 구현하자."
+"HANDOFF.txt를 읽고 현재 워킹트리 상태를 확인해줘. PWA + IndexedDB + JSON 백업/복원 구현은 완료됐고, 마지막 검증은 npm run test 40개 통과, npm run build 통과, dist PWA 자산 확인, 로컬 127.0.0.1:5173 응답 200까지 완료됐어. 이제 HANDOFF.txt 커밋 여부를 확인하고, 갤럭시 S25 실기기 접속 확인 단계부터 진행하자."
