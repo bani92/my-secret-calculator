@@ -213,6 +213,45 @@ describe('useBudgetStore', () => {
     expect(store.monthSummary.expenseTotal).toBe(0);
   });
 
+  test('adds expenses when crypto randomUUID is unavailable', async () => {
+    vi.restoreAllMocks();
+    const randomUuidDescriptor = Object.getOwnPropertyDescriptor(crypto, 'randomUUID');
+
+    Object.defineProperty(crypto, 'randomUUID', {
+      configurable: true,
+      value: undefined
+    });
+
+    try {
+      const { repository, store } = createBudgetStoreForTest();
+
+      await store.initialize();
+      store.setSelectedMonth('2026-06');
+      await store.addExpense({
+        date: '2026-06-27',
+        categoryId: 'lunch',
+        amount: 12_000,
+        memo: 'mobile lunch'
+      });
+
+      expect(store.monthExpenses).toHaveLength(1);
+      expect(store.monthExpenses[0]).toMatchObject({
+        date: '2026-06-27',
+        month: '2026-06',
+        categoryId: 'lunch',
+        amount: 12_000,
+        memo: 'mobile lunch'
+      });
+      expect(store.monthExpenses[0].id).toEqual(expect.any(String));
+      expect(store.monthExpenses[0].id.length).toBeGreaterThan(0);
+      expect(repository.savedData?.expenses[0].id).toBe(store.monthExpenses[0].id);
+    } finally {
+      if (randomUuidDescriptor) {
+        Object.defineProperty(crypto, 'randomUUID', randomUuidDescriptor);
+      }
+    }
+  });
+
   test('derives expense statistics for years and months', async () => {
     const { store } = createBudgetStoreForTest();
     await store.initialize();

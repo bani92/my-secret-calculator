@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import { nextTick } from 'vue';
 
 import App from './App.vue';
+import { getCurrentMonth } from './domain/calculations';
 
 const indexedDbData = new Map<string, unknown>();
 let indexedDbWritesShouldFail = false;
@@ -375,16 +376,18 @@ describe('App', () => {
   });
 
   test('shows a persistence failure message when import cannot be saved', async () => {
+    const currentMonth = getCurrentMonth();
+
     indexedDbData.set('current', {
       version: 1,
       months: {
-        '2026-06': { month: '2026-06', income: 100_000 }
+        [currentMonth]: { month: currentMonth, income: 100_000 }
       },
       expenses: [
         {
           id: 'existing-expense',
-          date: '2026-06-10',
-          month: '2026-06',
+          date: `${currentMonth}-10`,
+          month: currentMonth,
           categoryId: 'lunch',
           amount: 10_000,
           memo: 'existing lunch'
@@ -397,13 +400,13 @@ describe('App', () => {
     const validBackup = JSON.stringify({
       version: 1,
       months: {
-        '2026-06': { month: '2026-06', income: 500_000 }
+        [currentMonth]: { month: currentMonth, income: 500_000 }
       },
       expenses: [
         {
           id: 'imported-expense',
-          date: '2026-06-11',
-          month: '2026-06',
+          date: `${currentMonth}-11`,
+          month: currentMonth,
           categoryId: 'transport',
           amount: 20_000,
           memo: 'imported bus'
