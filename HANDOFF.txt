@@ -1,6 +1,6 @@
 Local Budget App Handoff
 Generated: 2026-06-29
-Workspace: C:\Users\banse\OneDrive\바탕 화면\time-manager
+Workspace: <프로젝트_경로>
 
 목적
 ----
@@ -215,7 +215,7 @@ git commit -m "docs: update handoff after pwa implementation"
 -------------------------------
 이번 세션에서 다음 방식으로 dev 서버를 백그라운드 실행했다.
 
-Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-Command','Set-Location "C:\Users\banse\OneDrive\바탕 화면\time-manager"; npm run dev -- --host 127.0.0.1' -WindowStyle Hidden
+Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-Command','Set-Location "<프로젝트_경로>"; npm run dev -- --host 127.0.0.1' -WindowStyle Hidden
 
 확인 URL:
 http://127.0.0.1:5173/
