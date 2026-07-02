@@ -106,20 +106,40 @@ import { toMonth } from '../domain/calculations';
 import { useBudgetStore } from '../stores/budgetStore';
 import { formatMoneyInput, parseMoneyInput } from '../utils/money';
 
+const props = defineProps<{
+  initialExpenseDate?: string;
+}>();
+
 const store = useBudgetStore();
 const today = new Date().toISOString().slice(0, 10);
 const incomeDraft = ref(formatMoneyInput(String(store.monthSummary.income)));
 const expenseAmountDraft = ref('');
 const expenseForm = reactive({
-  date: today,
+  date: props.initialExpenseDate ?? today,
   categoryId: 'lunch' as CategoryId,
   memo: ''
 });
+
+if (props.initialExpenseDate) {
+  store.setSelectedMonth(toMonth(props.initialExpenseDate));
+}
 
 watch(
   () => store.selectedMonth,
   () => {
     incomeDraft.value = formatMoneyInput(String(store.monthSummary.income));
+  }
+);
+
+watch(
+  () => props.initialExpenseDate,
+  (date) => {
+    if (!date) {
+      return;
+    }
+
+    expenseForm.date = date;
+    store.setSelectedMonth(toMonth(date));
   }
 );
 

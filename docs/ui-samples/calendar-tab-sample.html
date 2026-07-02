@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>캘린더 탭 샘플 UI</title>
+    <style>
+      :root {
+        --color-bg: #eef4f7;
+        --color-surface: #ffffff;
+        --color-surface-strong: #e6eef5;
+        --color-line: #ccd8e1;
+        --color-text: #17212b;
+        --color-muted: #637083;
+        --color-primary: #2864a6;
+        --color-primary-soft: #e6f0fb;
+        --color-accent: #d08b45;
+        --radius-sm: 6px;
+        --radius-md: 8px;
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 12px;
+        --space-4: 16px;
+        --space-5: 20px;
+        --touch-target: 44px;
+        color: var(--color-text);
+        background: var(--color-bg);
+        font-family: Pretendard, "Noto Sans KR", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-width: 320px;
+        margin: 0;
+      }
+
+      button,
+      select {
+        min-height: var(--touch-target);
+        font: inherit;
+      }
+
+      h1,
+      h2,
+      p {
+        margin-top: 0;
+      }
+
+      .app-shell {
+        min-height: 100vh;
+        padding: var(--space-4);
+      }
+
+      .app-header,
+      .tabs,
+      .calendar-layout {
+        max-width: 1120px;
+        margin-right: auto;
+        margin-left: auto;
+      }
+
+      .app-header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: var(--space-4);
+        margin-bottom: var(--space-4);
+      }
+
+      .eyebrow {
+        margin-bottom: var(--space-1);
+        color: var(--color-primary);
+        font-size: 0.875rem;
+        font-weight: 800;
+      }
+
+      .app-header h1 {
+        margin-bottom: 0;
+        font-size: 2.25rem;
+        line-height: 1.05;
+      }
+
+      .tabs {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: var(--space-2);
+        margin-bottom: var(--space-4);
+      }
+
+      .tab,
+      .date-cell {
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-md);
+        background: var(--color-surface);
+        color: var(--color-text);
+        cursor: pointer;
+        font-weight: 800;
+      }
+
+      .tab.active {
+        border-color: var(--color-primary);
+        background: var(--color-primary);
+        color: var(--color-surface);
+      }
+
+      .calendar-layout {
+        display: grid;
+        gap: var(--space-4);
+      }
+
+      .panel {
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-md);
+        background: var(--color-surface);
+        padding: var(--space-5);
+      }
+
+      .calendar-toolbar {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: var(--space-4);
+      }
+
+      .section-heading h2 {
+        margin-bottom: 0;
+        font-size: 1.25rem;
+      }
+
+      .section-heading span,
+      .helper-copy,
+      .day-name,
+      .expense-count {
+        color: var(--color-muted);
+      }
+
+      .section-heading span {
+        display: block;
+        margin-bottom: var(--space-1);
+        color: var(--color-accent);
+        font-size: 0.875rem;
+        font-weight: 900;
+      }
+
+      .period-controls {
+        display: grid;
+        grid-template-columns: 120px 100px;
+        gap: var(--space-2);
+      }
+
+      label {
+        display: grid;
+        gap: var(--space-2);
+        color: var(--color-muted);
+        font-size: 0.92rem;
+        font-weight: 800;
+      }
+
+      select {
+        width: 100%;
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-sm);
+        background: var(--color-surface-strong);
+        color: var(--color-text);
+        padding: 0 var(--space-3);
+      }
+
+      .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: var(--space-2);
+      }
+
+      .day-name {
+        display: grid;
+        min-height: 32px;
+        place-items: center;
+        font-size: 0.86rem;
+        font-weight: 900;
+      }
+
+      .day-name.weekend,
+      .date-cell.weekend .date-number {
+        color: #c44536;
+      }
+
+      .date-cell {
+        position: relative;
+        min-height: 138px;
+        padding: 34px var(--space-3) var(--space-3);
+        text-align: left;
+      }
+
+      .date-cell.empty {
+        border-style: dashed;
+        background: transparent;
+        cursor: default;
+      }
+
+      .date-cell.has-expenses {
+        border-color: color-mix(in srgb, var(--color-primary) 35%, var(--color-line));
+      }
+
+      .date-cell.today {
+        outline: 3px solid color-mix(in srgb, var(--color-accent) 42%, transparent);
+        outline-offset: -3px;
+      }
+
+      .date-number-row {
+        display: contents;
+      }
+
+      .date-number {
+        position: absolute;
+        top: var(--space-2);
+        left: var(--space-2);
+        font-size: 1rem;
+        font-weight: 900;
+      }
+
+      .expense-count {
+        position: absolute;
+        top: var(--space-2);
+        right: var(--space-2);
+        font-size: 0.78rem;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+
+      .expense-list {
+        display: grid;
+        gap: var(--space-1);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .expense-list li {
+        overflow-wrap: anywhere;
+        border-radius: var(--radius-sm);
+        background: var(--color-primary-soft);
+        padding: 5px 7px;
+        font-size: 0.83rem;
+        line-height: 1.35;
+      }
+
+      .expense-list strong {
+        display: block;
+      }
+
+      .expense-list span {
+        color: var(--color-muted);
+        font-weight: 800;
+      }
+
+      .status-message {
+        border: 1px solid color-mix(in srgb, var(--color-primary) 35%, var(--color-line));
+        border-radius: var(--radius-md);
+        background: var(--color-primary-soft);
+        padding: var(--space-3) var(--space-4);
+        color: var(--color-primary);
+        font-weight: 900;
+      }
+
+      .sample-data {
+        display: grid;
+        gap: var(--space-2);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .sample-data li {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--space-3);
+        border-top: 1px solid var(--color-line);
+        padding-top: var(--space-2);
+      }
+
+      .sample-data li:first-child {
+        border-top: 0;
+        padding-top: 0;
+      }
+
+      .helper-copy {
+        margin-bottom: 0;
+        line-height: 1.6;
+      }
+
+      @media (max-width: 860px) {
+        .app-header,
+        .calendar-toolbar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .period-controls {
+          width: 100%;
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .panel {
+          padding: var(--space-4);
+        }
+
+        .calendar-grid {
+          gap: 6px;
+        }
+
+        .date-cell {
+          min-height: 104px;
+          padding: 30px var(--space-2) var(--space-2);
+        }
+
+        .expense-list li {
+          padding: 4px 5px;
+          font-size: 0.74rem;
+        }
+
+        .expense-count {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <div>
+          <p class="eyebrow">개인 기록용</p>
+          <h1>로컬 가계부</h1>
+        </div>
+      </header>
+
+      <nav class="tabs" aria-label="주요 화면">
+        <button type="button" class="tab">입력</button>
+        <button type="button" class="tab">대시보드</button>
+        <button type="button" class="tab">통계</button>
+        <button type="button" class="tab active">캘린더</button>
+        <button type="button" class="tab">사람</button>
+      </nav>
+
+      <section class="calendar-layout">
+        <section class="panel">
+          <div class="calendar-toolbar">
+            <div class="section-heading">
+              <span>2026-07</span>
+              <h2>월간 지출 캘린더</h2>
+            </div>
+            <div class="period-controls">
+              <label>
+                년도
+                <select aria-label="캘린더 년도">
+                  <option>2026년</option>
+                  <option>2025년</option>
+                </select>
+              </label>
+              <label>
+                월
+                <select aria-label="캘린더 월">
+                  <option>7월</option>
+                  <option>6월</option>
+                  <option>5월</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <p class="helper-copy">날짜를 클릭하면 입력 탭으로 이동하고 해당 날짜가 지출 날짜로 선택됩니다.</p>
+        </section>
+
+        <p id="status" class="status-message" role="status" hidden></p>
+
+        <section class="panel">
+          <div id="calendar" class="calendar-grid" aria-label="2026년 7월 캘린더"></div>
+        </section>
+
+        <section class="panel">
+          <div class="section-heading">
+            <span>테스트 데이터</span>
+            <h2>샘플 지출</h2>
+          </div>
+          <ul id="sample-data" class="sample-data"></ul>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      const expenses = [
+        { date: '2026-07-02', category: '점심/외식', amount: 12000, memo: '점심' },
+        { date: '2026-07-02', category: '교통', amount: 3000, memo: '버스' },
+        { date: '2026-07-07', category: '점심/외식', amount: 5000, memo: '커피' },
+        { date: '2026-07-07', category: '데이트/여가', amount: 40000, memo: '영화' },
+        { date: '2026-07-07', category: '선물/경조사', amount: 10000, memo: '축의금' },
+        { date: '2026-07-07', category: '생활비', amount: 8000, memo: '편의점' },
+        { date: '2026-07-15', category: '장보기/식재료', amount: 68000, memo: '마트' },
+        { date: '2026-07-15', category: '의료/건강', amount: 18000, memo: '약국' },
+        { date: '2026-07-23', category: '고정비', amount: 180000, memo: '관리비' },
+        { date: '2026-07-28', category: '기타', amount: 25000, memo: '수리' }
+      ];
+
+      const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+      const won = (value) => `${value.toLocaleString('ko-KR')}원`;
+
+      function groupByDate(items) {
+        return items.reduce((groups, expense) => {
+          groups[expense.date] ||= [];
+          groups[expense.date].push(expense);
+          return groups;
+        }, {});
+      }
+
+      function renderCalendar() {
+        const calendar = document.querySelector('#calendar');
+        const grouped = groupByDate(expenses);
+        const firstDay = new Date(2026, 6, 1).getDay();
+        const lastDate = new Date(2026, 7, 0).getDate();
+        const cells = [];
+
+        for (const [index, dayName] of dayNames.entries()) {
+          const weekendClass = index === 0 || index === 6 ? ' weekend' : '';
+          cells.push(`<div class="day-name${weekendClass}">${dayName}</div>`);
+        }
+
+        for (let index = 0; index < firstDay; index += 1) {
+          cells.push('<div class="date-cell empty" aria-hidden="true"></div>');
+        }
+
+        for (let day = 1; day <= lastDate; day += 1) {
+          const date = `2026-07-${String(day).padStart(2, '0')}`;
+          const dayOfWeek = new Date(2026, 6, day).getDay();
+          const dailyExpenses = grouped[date] || [];
+          const visibleExpenses = dailyExpenses.slice(0, 3);
+          const hiddenCount = Math.max(dailyExpenses.length - 3, 0);
+          const classNames = ['date-cell'];
+
+          if (dayOfWeek === 0 || dayOfWeek === 6) {
+            classNames.push('weekend');
+          }
+
+          if (dailyExpenses.length > 0) {
+            classNames.push('has-expenses');
+          }
+
+          if (date === '2026-07-07') {
+            classNames.push('today');
+          }
+
+          cells.push(`
+            <button type="button" class="${classNames.join(' ')}" data-date="${date}">
+              <span class="date-number-row">
+                <span class="date-number">${day}</span>
+                ${dailyExpenses.length > 0 ? `<span class="expense-count">${dailyExpenses.length}건</span>` : ''}
+              </span>
+              <ul class="expense-list">
+                ${visibleExpenses
+                  .map((expense, index) => {
+                    const suffix = hiddenCount > 0 && index === 2 ? ` 외 ${hiddenCount}건` : '';
+                    return `<li><strong>${expense.category}</strong><span>${won(expense.amount)}${suffix}</span></li>`;
+                  })
+                  .join('')}
+              </ul>
+            </button>
+          `);
+        }
+
+        calendar.innerHTML = cells.join('');
+      }
+
+      function renderSampleData() {
+        const sampleData = document.querySelector('#sample-data');
+        sampleData.innerHTML = expenses
+          .map(
+            (expense) => `
+              <li>
+                <span>${expense.date} · ${expense.category} · ${expense.memo}</span>
+                <strong>${won(expense.amount)}</strong>
+              </li>
+            `
+          )
+          .join('');
+      }
+
+      document.addEventListener('click', (event) => {
+        const cell = event.target.closest('[data-date]');
+        if (!cell) {
+          return;
+        }
+
+        const status = document.querySelector('#status');
+        status.hidden = false;
+        status.textContent = `${cell.dataset.date} 날짜로 지출 입력을 준비했습니다.`;
+      });
+
+      renderCalendar();
+      renderSampleData();
+    </script>
+  </body>
+</html>

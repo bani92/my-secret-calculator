@@ -302,6 +302,60 @@ describe('App', () => {
     expect(wrapper.find('[data-testid="monthly-expense-chart"]').exists()).toBe(false);
   });
 
+  test('shows a calendar tab with daily expenses and prepares input for the clicked date', async () => {
+    const wrapper = await mountLoadedApp();
+
+    await wrapper.get('[aria-label="지출 날짜"]').setValue('2026-07-12');
+    await wrapper.get('[aria-label="지출 분류"]').setValue('lunch');
+    await wrapper.get('[aria-label="지출 금액"]').setValue('5000');
+    await wrapper.get('[aria-label="지출 메모"]').setValue('커피');
+    await wrapper.get('[data-testid="expense-form"]').trigger('submit');
+    await flushAsyncActions();
+
+    await wrapper.get('[aria-label="지출 날짜"]').setValue('2026-07-12');
+    await wrapper.get('[aria-label="지출 분류"]').setValue('dating');
+    await wrapper.get('[aria-label="지출 금액"]').setValue('40000');
+    await wrapper.get('[aria-label="지출 메모"]').setValue('영화');
+    await wrapper.get('[data-testid="expense-form"]').trigger('submit');
+    await flushAsyncActions();
+
+    await wrapper.get('[aria-label="지출 날짜"]').setValue('2026-07-12');
+    await wrapper.get('[aria-label="지출 분류"]').setValue('gifts');
+    await wrapper.get('[aria-label="지출 금액"]').setValue('10000');
+    await wrapper.get('[aria-label="지출 메모"]').setValue('축의금');
+    await wrapper.get('[data-testid="expense-form"]').trigger('submit');
+    await flushAsyncActions();
+
+    await wrapper.get('[aria-label="지출 날짜"]').setValue('2026-07-12');
+    await wrapper.get('[aria-label="지출 분류"]').setValue('living');
+    await wrapper.get('[aria-label="지출 금액"]').setValue('8000');
+    await wrapper.get('[aria-label="지출 메모"]').setValue('편의점');
+    await wrapper.get('[data-testid="expense-form"]').trigger('submit');
+    await flushAsyncActions();
+
+    await wrapper.get('[aria-label="지출 날짜"]').setValue('2026-07-12');
+    await wrapper.findAll('button').find((button) => button.text() === '캘린더')?.trigger('click');
+
+    expect(wrapper.get('[aria-label="캘린더 년도"]').text()).toContain('2026년');
+    expect(wrapper.get('[aria-label="캘린더 월"]').text()).toContain('7월');
+
+    const calendarCell = wrapper.get('[data-testid="calendar-date-2026-07-12"]');
+
+    expect(calendarCell.classes()).toContain('weekend');
+    expect(calendarCell.text()).toContain('점심/외식');
+    expect(calendarCell.text()).toContain('5,000원');
+    expect(calendarCell.text()).toContain('데이트/여가');
+    expect(calendarCell.text()).toContain('선물/경조사');
+    expect(calendarCell.text()).toContain('외 1건');
+    expect(calendarCell.text()).not.toContain('커피');
+
+    await calendarCell.trigger('click');
+
+    expect(wrapper.get('[aria-selected="true"]').text()).toBe('입력');
+    expect(wrapper.get<HTMLInputElement>('[aria-label="지출 날짜"]').element.value).toBe('2026-07-12');
+    expect(wrapper.text()).toContain('2026-07-12 날짜로 지출 입력을 준비했습니다.');
+  });
+
   test('records person money and keeps settled records in history', async () => {
     const wrapper = await mountLoadedApp();
 

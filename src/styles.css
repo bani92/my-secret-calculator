@@ -92,7 +92,7 @@ p {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--space-2);
   max-width: 1120px;
   margin: 0 auto var(--space-4);
@@ -142,6 +142,112 @@ select:focus-visible,
   gap: var(--space-4);
   max-width: 1120px;
   margin: 0 auto;
+}
+
+.calendar-layout {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.calendar-toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.period-controls {
+  display: grid;
+  grid-template-columns: 120px 100px;
+  gap: var(--space-2);
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.day-name {
+  display: grid;
+  min-height: 32px;
+  place-items: center;
+  color: var(--color-muted);
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.day-name.weekend,
+.date-cell.weekend .date-number {
+  color: var(--color-danger);
+}
+
+.date-cell {
+  position: relative;
+  min-height: 138px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  padding: 34px var(--space-3) var(--space-3);
+  text-align: left;
+}
+
+.date-cell.empty {
+  border-style: dashed;
+  background: transparent;
+  cursor: default;
+}
+
+.date-cell.has-expenses {
+  border-color: color-mix(in srgb, var(--color-primary) 35%, var(--color-line));
+}
+
+.date-number {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  font-weight: 900;
+}
+
+.expense-count {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.expense-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.expense-list li {
+  overflow-wrap: anywhere;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-soft);
+  padding: 5px 7px;
+  font-size: 0.83rem;
+  line-height: 1.35;
+}
+
+.expense-list strong {
+  display: block;
+}
+
+.expense-list span {
+  color: var(--color-muted);
+  font-weight: 800;
 }
 
 .dashboard-period-panel {
@@ -505,6 +611,16 @@ hr {
     grid-template-columns: 1fr;
   }
 
+  .calendar-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .period-controls {
+    width: 100%;
+    grid-template-columns: 1fr 1fr;
+  }
+
   .statistics-filter-panel .section-heading,
   .statistics-filter-field {
     grid-column: 1;
@@ -542,6 +658,28 @@ hr {
   .metric-list li {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .calendar-grid {
+    gap: 6px;
+  }
+
+  .date-cell {
+    min-height: 104px;
+    padding: 30px var(--space-2) var(--space-2);
+  }
+
+  .expense-list li {
+    padding: 4px 5px;
+    font-size: 0.74rem;
+  }
+
+  .expense-count {
+    display: none;
   }
 
   .year-stat-row,

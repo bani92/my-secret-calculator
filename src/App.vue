@@ -36,9 +36,10 @@
         </button>
       </nav>
 
-      <LedgerTab v-if="activeTab === 'input'" />
+      <LedgerTab v-if="activeTab === 'input'" :initial-expense-date="pendingExpenseDate" />
       <DashboardTab v-else-if="activeTab === 'dashboard'" />
       <StatisticsTab v-else-if="activeTab === 'statistics'" />
+      <CalendarTab v-else-if="activeTab === 'calendar'" @select-date="selectCalendarDate" />
       <PersonMoneyTab v-else />
     </template>
   </main>
@@ -47,23 +48,26 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 
+import CalendarTab from './components/CalendarTab.vue';
 import DashboardTab from './components/DashboardTab.vue';
 import LedgerTab from './components/LedgerTab.vue';
 import PersonMoneyTab from './components/PersonMoneyTab.vue';
 import StatisticsTab from './components/StatisticsTab.vue';
 import { useBudgetStore } from './stores/budgetStore';
 
-type TabId = 'input' | 'dashboard' | 'statistics' | 'people';
+type TabId = 'input' | 'dashboard' | 'statistics' | 'calendar' | 'people';
 
 const tabs: Array<{ id: TabId; label: string }> = [
   { id: 'input', label: '입력' },
   { id: 'dashboard', label: '대시보드' },
   { id: 'statistics', label: '통계' },
+  { id: 'calendar', label: '캘린더' },
   { id: 'people', label: '사람' }
 ];
 
 const store = useBudgetStore();
 const activeTab = ref<TabId>('input');
+const pendingExpenseDate = ref<string | undefined>();
 const statusMessage = ref('');
 let statusTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -89,6 +93,12 @@ function showStatus(message: string): void {
   statusTimer = setTimeout(() => {
     statusMessage.value = '';
   }, 3_000);
+}
+
+function selectCalendarDate(date: string): void {
+  pendingExpenseDate.value = date;
+  activeTab.value = 'input';
+  showStatus(`${date} 날짜로 지출 입력을 준비했습니다.`);
 }
 
 async function downloadBackup(): Promise<void> {
