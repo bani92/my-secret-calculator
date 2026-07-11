@@ -16,9 +16,18 @@ export function createAuthStore(getClient: () => SupabaseClient = requireSupabas
     const errorMessage = ref('');
     let initializePromise: Promise<void> | undefined;
     let subscription: AuthSubscription | undefined;
+    let lifecycleGeneration = 0;
+    let operationGeneration = 0;
 
-    const initialize = async (): Promise<void> => {
-      initializePromise ??= (async () => {
+    const initialize = (): Promise<void> => {
+      if (initializePromise) {
+        return initializePromise;
+      }
+
+      const initializationLifecycle = lifecycleGeneration;
+      const initializationOperation = ++operationGeneration;
+
+      const promise = (async () => {
         isLoading.value = true;
         errorMessage.value = '';
 
@@ -30,24 +39,46 @@ export function createAuthStore(getClient: () => SupabaseClient = requireSupabas
             throw error;
           }
 
-          session.value = data.session;
-          subscription = client.auth.onAuthStateChange((_event, nextSession) => {
-            session.value = nextSession;
+          if (lifecycleGeneration !== initializationLifecycle) {
+            return;
+          }
+
+          if (operationGeneration === initializationOperation) {
+            session.value = data.session;
+          }
+
+          const nextSubscription = client.auth.onAuthStateChange((_event, nextSession) => {
+            if (lifecycleGeneration === initializationLifecycle) {
+              session.value = nextSession;
+            }
           }).data.subscription;
+
+          if (lifecycleGeneration !== initializationLifecycle) {
+            nextSubscription.unsubscribe();
+            return;
+          }
+
+          subscription = nextSubscription;
           isInitialized.value = true;
         } catch (error) {
-          initializePromise = undefined;
-          isInitialized.value = false;
+          if (lifecycleGeneration === initializationLifecycle) {
+            isInitialized.value = false;
+            initializePromise = undefined;
+          }
           throw error;
         } finally {
-          isLoading.value = false;
+          if (operationGeneration === initializationOperation) {
+            isLoading.value = false;
+          }
         }
       })();
 
-      await initializePromise;
+      initializePromise = promise;
+      return promise;
     };
 
     const login = async (email: string, password: string): Promise<void> => {
+      const loginOperation = ++operationGeneration;
       isLoading.value = true;
       errorMessage.value = '';
 
@@ -58,16 +89,24 @@ export function createAuthStore(getClient: () => SupabaseClient = requireSupabas
           throw error;
         }
 
-        session.value = data.session;
+        if (operationGeneration === loginOperation) {
+          session.value = data.session;
+        }
       } catch {
-        errorMessage.value = LOGIN_ERROR_MESSAGE;
+        if (operationGeneration === loginOperation) {
+          errorMessage.value = LOGIN_ERROR_MESSAGE;
+        }
+
         throw new Error(LOGIN_ERROR_MESSAGE);
       } finally {
-        isLoading.value = false;
+        if (operationGeneration === loginOperation) {
+          isLoading.value = false;
+        }
       }
     };
 
     const logout = async (): Promise<void> => {
+      const logoutOperation = ++operationGeneration;
       isLoading.value = true;
       errorMessage.value = '';
 
@@ -78,13 +117,22 @@ export function createAuthStore(getClient: () => SupabaseClient = requireSupabas
           throw error;
         }
 
-        session.value = null;
+        if (operationGeneration === logoutOperation) {
+          session.value = null;
+        }
       } finally {
-        isLoading.value = false;
+        if (operationGeneration === logoutOperation) {
+          isLoading.value = false;
+        }
       }
     };
 
     const dispose = (): void => {
+      lifecycleGeneration += 1;
+      operationGeneration += 1;
+      initializePromise = undefined;
+      isInitialized.value = false;
+      isLoading.value = false;
       subscription?.unsubscribe();
       subscription = undefined;
     };
