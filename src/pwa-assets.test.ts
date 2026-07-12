@@ -35,11 +35,15 @@ describe('PWA install assets', () => {
   });
 
   test('service worker caches app shell and only handles same-origin GET requests', () => {
-    expect(serviceWorker).toContain("const cacheName = 'local-budget-app-v1'");
+    expect(serviceWorker).toContain("const cacheName = 'local-budget-app-v2'");
     expect(serviceWorker).toContain("'/manifest.webmanifest'");
     expect(serviceWorker).toContain("'/icons/icon-192.svg'");
     expect(serviceWorker).toContain("event.request.method !== 'GET'");
     expect(serviceWorker).toContain('event.request.url.startsWith(self.location.origin)');
+    expect(serviceWorker).toContain('isFreshAppAsset(event.request)');
+    expect(serviceWorker).toContain('function fetchAndCache(request)');
+    expect(serviceWorker).toContain('return fetch(request)');
+    expect(serviceWorker).toContain('cachedResponse ?? fetch(event.request)');
   });
 
   test('index advertises the manifest and matching theme color', () => {

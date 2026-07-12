@@ -1,4 +1,4 @@
-const cacheName = 'local-budget-app-v1';
+const cacheName = 'local-budget-app-v2';
 const appShell = [
   '/',
   '/index.html',
@@ -30,17 +30,30 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
+  if (isFreshAppAsset(event.request)) {
+    event.respondWith(fetchAndCache(event.request));
+    return;
+  }
 
-      return fetch(event.request).then((networkResponse) => {
-        const responseCopy = networkResponse.clone();
-        void caches.open(cacheName).then((cache) => cache.put(event.request, responseCopy)).catch(() => undefined);
-        return networkResponse;
-      });
-    }),
-  );
+  event.respondWith(caches.match(event.request).then((cachedResponse) => cachedResponse ?? fetch(event.request)));
 });
+
+function isFreshAppAsset(request) {
+  return (
+    request.mode === 'navigate' ||
+    request.destination === 'script' ||
+    request.destination === 'style' ||
+    new URL(request.url).pathname === '/' ||
+    new URL(request.url).pathname === '/index.html'
+  );
+}
+
+function fetchAndCache(request) {
+  return fetch(request)
+    .then((networkResponse) => {
+      const responseCopy = networkResponse.clone();
+      void caches.open(cacheName).then((cache) => cache.put(request, responseCopy)).catch(() => undefined);
+      return networkResponse;
+    })
+    .catch(() => caches.match(request).then((cachedResponse) => cachedResponse ?? fetch(request)));
+}
