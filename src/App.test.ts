@@ -487,9 +487,25 @@ describe('App', () => {
 
     await calendarCell.trigger('click');
 
+    const expenseDialog = wrapper.get('[data-testid="calendar-expense-dialog"]');
+
+    expect(expenseDialog.attributes('role')).toBe('dialog');
+    expect(expenseDialog.text()).toContain('2026-07-12');
+    expect(expenseDialog.text()).toContain('5,000원');
+    expect(expenseDialog.text()).toContain('40,000원');
+    expect(expenseDialog.text()).toContain('10,000원');
+    expect(expenseDialog.text()).toContain('8,000원');
+    expect(wrapper.find('[data-testid="expense-form"]').exists()).toBe(false);
+
+    await wrapper.get('[data-testid="calendar-expense-dialog-close"]').trigger('click');
+
+    expect(wrapper.find('[data-testid="calendar-expense-dialog"]').exists()).toBe(false);
+
+    await wrapper.get('[data-testid="calendar-date-2026-07-13"]').trigger('click');
+
     expect(wrapper.get('[aria-selected="true"]').text()).toBe('입력');
-    expect(wrapper.get<HTMLInputElement>('[aria-label="지출 날짜"]').element.value).toBe('2026-07-12');
-    expect(wrapper.text()).toContain('2026-07-12 날짜로 지출 입력을 준비했습니다.');
+    expect(wrapper.get<HTMLInputElement>('[aria-label="지출 날짜"]').element.value).toBe('2026-07-13');
+    expect(wrapper.text()).toContain('2026-07-13 날짜로 지출 입력을 준비했습니다.');
   });
 
   test('records person money and keeps settled records in history', async () => {

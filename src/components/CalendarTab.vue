@@ -48,7 +48,7 @@
           class="date-cell"
           :class="{ weekend: day.weekend, 'has-expenses': day.expenses.length > 0 }"
           :data-testid="`calendar-date-${day.date}`"
-          @click="emit('select-date', day.date)"
+          @click="selectDay(day)"
         >
           <span class="date-number">{{ day.day }}</span>
           <span v-if="day.expenses.length > 0" class="expense-count">{{ day.expenses.length }}건</span>
@@ -64,11 +64,52 @@
         </button>
       </div>
     </section>
+
+    <div v-if="selectedExpenseDay" class="dialog-backdrop" @click.self="closeExpenseDialog">
+      <section
+        class="expense-dialog"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="`${selectedExpenseDay.date} 지출 내역`"
+        data-testid="calendar-expense-dialog"
+      >
+        <header class="expense-dialog-header">
+          <div>
+            <span>{{ selectedExpenseDay.date }}</span>
+            <h3>지출 내역</h3>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            aria-label="지출 내역 닫기"
+            data-testid="calendar-expense-dialog-close"
+            @click="closeExpenseDialog"
+          >
+            닫기
+          </button>
+        </header>
+
+        <div class="expense-dialog-summary">
+          <span>{{ selectedExpenseDay.expenses.length }}건</span>
+          <strong>{{ formatWon(selectedExpenseTotal) }}</strong>
+        </div>
+
+        <ul class="expense-dialog-list">
+          <li v-for="expense in selectedExpenseDay.expenses" :key="expense.id">
+            <div>
+              <strong>{{ categoryLabel(expense.categoryId) }}</strong>
+              <span>{{ expense.memo || '메모 없음' }}</span>
+            </div>
+            <strong>{{ formatWon(expense.amount) }}</strong>
+          </li>
+        </ul>
+      </section>
+    </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { categories } from '../domain/categories';
 import type { CategoryId, Expense } from '../domain/types';
@@ -86,6 +127,7 @@ interface CalendarDay {
 }
 
 const store = useBudgetStore();
+const selectedExpenseDay = ref<CalendarDay | null>(null);
 const dayHeaders = [
   { label: '일', weekend: true },
   { label: '월', weekend: false },
@@ -148,6 +190,17 @@ const daysInMonth = computed<CalendarDay[]>(() => {
     };
   });
 });
+const selectedExpenseTotal = computed(() =>
+  selectedExpenseDay.value?.expenses.reduce((total, expense) => total + expense.amount, 0) ?? 0
+);
+
+onMounted(() => {
+  window.addEventListener('keydown', closeExpenseDialogOnEscape);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', closeExpenseDialogOnEscape);
+});
 
 function changeYear(event: Event): void {
   store.setSelectedMonth(`${(event.target as HTMLSelectElement).value}-${selectedMonthNumber.value}`);
@@ -155,6 +208,25 @@ function changeYear(event: Event): void {
 
 function changeMonth(event: Event): void {
   store.setSelectedMonth(`${selectedYear.value}-${(event.target as HTMLSelectElement).value}`);
+}
+
+function selectDay(day: CalendarDay): void {
+  if (day.expenses.length > 0) {
+    selectedExpenseDay.value = day;
+    return;
+  }
+
+  emit('select-date', day.date);
+}
+
+function closeExpenseDialog(): void {
+  selectedExpenseDay.value = null;
+}
+
+function closeExpenseDialogOnEscape(event: KeyboardEvent): void {
+  if (event.key === 'Escape') {
+    closeExpenseDialog();
+  }
 }
 
 function visibleExpenses(expenses: Expense[]): Expense[] {
