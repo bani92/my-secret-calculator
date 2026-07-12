@@ -67,10 +67,29 @@ describe('IndexedDbBudgetRepository', () => {
     await expect(repository.load()).resolves.toEqual(createEmptyBudgetData());
   });
 
-  test('save and load roundtrip using the current BudgetData record', async () => {
-    await repository.save(sampleBudgetData);
+  test('replaceAll and load roundtrip using the current BudgetData record', async () => {
+    await repository.replaceAll(sampleBudgetData);
 
     await expect(repository.load()).resolves.toEqual(sampleBudgetData);
+  });
+
+  test('adds an expense while preserving existing budget data', async () => {
+    await repository.replaceAll(sampleBudgetData);
+    const expense = {
+      id: 'expense-2',
+      date: '2026-06-28',
+      month: '2026-06',
+      categoryId: 'transport' as const,
+      amount: 4_000,
+      memo: 'bus'
+    };
+
+    await repository.addExpense(expense);
+
+    await expect(repository.load()).resolves.toEqual({
+      ...sampleBudgetData,
+      expenses: [...sampleBudgetData.expenses, expense]
+    });
   });
 
   test('load falls back to empty data when stored data is unsupported', async () => {

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 
 import { createEmptyBudgetData } from '../domain/calculations';
-import type { BudgetData } from '../domain/types';
+import type { BudgetData, Expense, MonthRecord, PersonMoneyRecord } from '../domain/types';
 import type { BudgetRepository } from '../storage/budgetRepository';
 import { parseBudgetJson } from '../storage/exportImport';
 import { createBudgetStore, useBudgetStore } from './budgetStore';
@@ -10,19 +10,62 @@ import { createBudgetStore, useBudgetStore } from './budgetStore';
 class MemoryBudgetRepository implements BudgetRepository {
   savedData: BudgetData | undefined;
   loadCount = 0;
-  saveCount = 0;
+  setIncomeCount = 0;
+  addExpenseCount = 0;
+  deleteExpenseCount = 0;
+  addPersonRecordCount = 0;
+  setPersonRecordSettledCount = 0;
+  replaceAllCount = 0;
 
   constructor(private data: BudgetData = createEmptyBudgetData()) {}
 
   async load(): Promise<BudgetData> {
     this.loadCount += 1;
-    return this.data;
+    return structuredClone(this.data);
   }
 
-  async save(data: BudgetData): Promise<void> {
-    this.saveCount += 1;
+  async setIncome(record: MonthRecord): Promise<void> {
+    this.setIncomeCount += 1;
+    this.data.months[record.month] = structuredClone(record);
+    this.saveSnapshot();
+  }
+
+  async addExpense(expense: Expense): Promise<void> {
+    this.addExpenseCount += 1;
+    this.data.expenses.push(structuredClone(expense));
+    this.saveSnapshot();
+  }
+
+  async deleteExpense(id: string): Promise<void> {
+    this.deleteExpenseCount += 1;
+    this.data.expenses = this.data.expenses.filter((expense) => expense.id !== id);
+    this.saveSnapshot();
+  }
+
+  async addPersonRecord(record: PersonMoneyRecord): Promise<void> {
+    this.addPersonRecordCount += 1;
+    this.data.personRecords.push(structuredClone(record));
+    this.saveSnapshot();
+  }
+
+  async setPersonRecordSettled(id: string, settled: boolean): Promise<void> {
+    this.setPersonRecordSettledCount += 1;
+    const record = this.data.personRecords.find((item) => item.id === id);
+
+    if (record) {
+      record.settled = settled;
+    }
+    this.saveSnapshot();
+  }
+
+  async replaceAll(data: BudgetData): Promise<void> {
+    this.replaceAllCount += 1;
     this.savedData = structuredClone(data);
     this.data = structuredClone(data);
+  }
+
+  private saveSnapshot(): void {
+    this.savedData = structuredClone(this.data);
   }
 }
 
@@ -46,8 +89,33 @@ class FlakyLoadBudgetRepository extends MemoryBudgetRepository {
 }
 
 class FailingSaveBudgetRepository extends MemoryBudgetRepository {
-  async save(): Promise<void> {
-    this.saveCount += 1;
+  async setIncome(): Promise<void> {
+    this.setIncomeCount += 1;
+    throw new Error('save failed');
+  }
+
+  async addExpense(): Promise<void> {
+    this.addExpenseCount += 1;
+    throw new Error('save failed');
+  }
+
+  async deleteExpense(): Promise<void> {
+    this.deleteExpenseCount += 1;
+    throw new Error('save failed');
+  }
+
+  async addPersonRecord(): Promise<void> {
+    this.addPersonRecordCount += 1;
+    throw new Error('save failed');
+  }
+
+  async setPersonRecordSettled(): Promise<void> {
+    this.setPersonRecordSettledCount += 1;
+    throw new Error('save failed');
+  }
+
+  async replaceAll(): Promise<void> {
+    this.replaceAllCount += 1;
     throw new Error('save failed');
   }
 }
@@ -105,6 +173,12 @@ describe('useBudgetStore', () => {
     expect(store.monthSummary.income).toBe(3_000_000);
     expect(store.data.months['2026-06']).toEqual({ month: '2026-06', income: 3_000_000 });
     expect(repository.savedData?.months['2026-06'].income).toBe(3_000_000);
+    expect(repository.setIncomeCount).toBe(1);
+    expect(repository.addExpenseCount).toBe(0);
+    expect(repository.deleteExpenseCount).toBe(0);
+    expect(repository.addPersonRecordCount).toBe(0);
+    expect(repository.setPersonRecordSettledCount).toBe(0);
+    expect(repository.replaceAllCount).toBe(0);
   });
 
   test('mutation actions wait for initialization before saving', async () => {
@@ -175,8 +249,20 @@ describe('useBudgetStore', () => {
     expect(store.monthSummary.income).toBe(0);
   });
 
+  test('validates income before persisting it', async () => {
+    const { repository, store } = createBudgetStoreForTest();
+    await store.initialize();
+
+    store.setSelectedMonth('2026-06');
+
+    await expect(store.setIncome(Number.NaN)).rejects.toThrow();
+
+    expect(repository.setIncomeCount).toBe(0);
+    expect(store.data.months['2026-06']).toBeUndefined();
+  });
+
   test('adds, lists, summarizes, and deletes expenses for the selected month', async () => {
-    const { store } = createBudgetStoreForTest();
+    const { repository, store } = createBudgetStoreForTest();
     await store.initialize();
 
     store.setSelectedMonth('2026-06');
@@ -211,6 +297,12 @@ describe('useBudgetStore', () => {
 
     expect(store.monthExpenses).toEqual([]);
     expect(store.monthSummary.expenseTotal).toBe(0);
+    expect(repository.addExpenseCount).toBe(2);
+    expect(repository.deleteExpenseCount).toBe(1);
+    expect(repository.setIncomeCount).toBe(1);
+    expect(repository.addPersonRecordCount).toBe(0);
+    expect(repository.setPersonRecordSettledCount).toBe(0);
+    expect(repository.replaceAllCount).toBe(0);
   });
 
   test('adds expenses when crypto randomUUID is unavailable', async () => {
@@ -252,6 +344,23 @@ describe('useBudgetStore', () => {
     }
   });
 
+  test('validates expenses before persisting them', async () => {
+    const { repository, store } = createBudgetStoreForTest();
+    await store.initialize();
+
+    await expect(
+      store.addExpense({
+        date: '2026-06-27',
+        categoryId: 'lunch',
+        amount: Number.NaN,
+        memo: 'bad amount'
+      })
+    ).rejects.toThrow();
+
+    expect(repository.addExpenseCount).toBe(0);
+    expect(store.data.expenses).toEqual([]);
+  });
+
   test('derives expense statistics for years and months', async () => {
     const { store } = createBudgetStoreForTest();
     await store.initialize();
@@ -289,7 +398,7 @@ describe('useBudgetStore', () => {
   });
 
   test('adds person records and toggles settlement in active balances only', async () => {
-    const { store } = createBudgetStoreForTest();
+    const { repository, store } = createBudgetStoreForTest();
     await store.initialize();
 
     await store.addPersonRecord({
@@ -321,7 +430,31 @@ describe('useBudgetStore', () => {
     await store.togglePersonRecordSettled('00000000-0000-4000-8000-000000000001');
 
     expect(store.data.personRecords[0].settled).toBe(true);
+    expect(repository.addPersonRecordCount).toBe(2);
+    expect(repository.setPersonRecordSettledCount).toBe(1);
+    expect(repository.setIncomeCount).toBe(0);
+    expect(repository.addExpenseCount).toBe(0);
+    expect(repository.deleteExpenseCount).toBe(0);
+    expect(repository.replaceAllCount).toBe(0);
     expect(store.personBalances).toEqual([{ personName: '민수', balance: -10_000 }]);
+  });
+
+  test('validates person records before persisting them', async () => {
+    const { repository, store } = createBudgetStoreForTest();
+    await store.initialize();
+
+    await expect(
+      store.addPersonRecord({
+        date: '2026-06-27',
+        personName: '민수',
+        direction: 'receivable',
+        amount: Number.NaN,
+        memo: 'bad amount'
+      })
+    ).rejects.toThrow();
+
+    expect(repository.addPersonRecordCount).toBe(0);
+    expect(store.data.personRecords).toEqual([]);
   });
 
   test('exports and imports JSON while preserving persisted data', async () => {
@@ -338,6 +471,12 @@ describe('useBudgetStore', () => {
 
     expect(nextStore.data.months['2026-06'].income).toBe(1_000_000);
     expect(repository.savedData?.months['2026-06'].income).toBe(1_000_000);
+    expect(repository.replaceAllCount).toBe(1);
+    expect(repository.setIncomeCount).toBe(1);
+    expect(repository.addExpenseCount).toBe(0);
+    expect(repository.deleteExpenseCount).toBe(0);
+    expect(repository.addPersonRecordCount).toBe(0);
+    expect(repository.setPersonRecordSettledCount).toBe(0);
   });
 
   test('rejects failed imports without replacing current data in memory', async () => {
@@ -382,7 +521,12 @@ describe('useBudgetStore', () => {
 
     await expect(store.importJson(importedBackup)).rejects.toThrow('save failed');
 
-    expect(repository.saveCount).toBe(1);
+    expect(repository.replaceAllCount).toBe(1);
+    expect(repository.setIncomeCount).toBe(0);
+    expect(repository.addExpenseCount).toBe(0);
+    expect(repository.deleteExpenseCount).toBe(0);
+    expect(repository.addPersonRecordCount).toBe(0);
+    expect(repository.setPersonRecordSettledCount).toBe(0);
     expect(store.data).toEqual(existingData);
     expect(store.monthSummary.income).toBe(100_000);
     expect(store.monthExpenses).toHaveLength(1);
@@ -393,5 +537,19 @@ describe('useBudgetStore', () => {
     const store = useBudgetStore();
 
     expect(store.isLoaded).toBe(false);
+  });
+
+  test('resets loaded state and loads again on the next initialization', async () => {
+    const { repository, store } = createBudgetStoreForTest();
+
+    await store.initialize();
+    store.reset();
+
+    expect(store.isLoaded).toBe(false);
+    expect(store.data).toEqual(createEmptyBudgetData());
+
+    await store.initialize();
+
+    expect(repository.loadCount).toBe(2);
   });
 });

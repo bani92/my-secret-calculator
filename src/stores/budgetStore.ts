@@ -13,7 +13,8 @@ import {
 import type { BudgetData, CategoryId, PersonMoneyDirection } from '../domain/types';
 import type { BudgetRepository } from '../storage/budgetRepository';
 import { parseBudgetJson, stringifyBudgetData } from '../storage/exportImport';
-import { IndexedDbBudgetRepository } from '../storage/indexedDbBudgetRepository';
+import { requireSupabaseClient } from '../lib/supabaseClient';
+import { SupabaseBudgetRepository } from '../storage/supabaseBudgetRepository';
 
 const newId = (): string => {
   if (typeof crypto.randomUUID === 'function') {
@@ -39,6 +40,7 @@ const newId = (): string => {
     .slice(8, 10)
     .join('')}-${hex.slice(10, 16).join('')}`;
 };
+
 const cloneBudgetData = (budgetData: BudgetData): BudgetData => parseBudgetJson(stringifyBudgetData(budgetData));
 
 export function createBudgetStore(repository: BudgetRepository) {
@@ -99,13 +101,6 @@ export function createBudgetStore(repository: BudgetRepository) {
       }
     };
 
-    const saveNextData = async (nextData: BudgetData): Promise<void> => {
-      const validatedData = cloneBudgetData(nextData);
-
-      await repository.save(validatedData);
-      data.value = validatedData;
-    };
-
     const setSelectedMonth = (month: string): void => {
       selectedMonth.value = month;
     };
@@ -113,9 +108,12 @@ export function createBudgetStore(repository: BudgetRepository) {
     const setIncome = async (income: number): Promise<void> => {
       await ensureInitialized();
       const nextData = cloneBudgetData(data.value);
-
       nextData.months[selectedMonth.value] = { month: selectedMonth.value, income };
-      await saveNextData(nextData);
+      const validatedData = cloneBudgetData(nextData);
+      const record = validatedData.months[selectedMonth.value];
+
+      await repository.setIncome(record);
+      data.value.months[record.month] = record;
     };
 
     const addExpense = async (payload: {
@@ -126,24 +124,30 @@ export function createBudgetStore(repository: BudgetRepository) {
     }): Promise<void> => {
       await ensureInitialized();
       const nextData = cloneBudgetData(data.value);
-
-      nextData.expenses.push({
+      const nextExpense = {
         id: newId(),
         date: payload.date,
         month: toMonth(payload.date),
         categoryId: payload.categoryId,
         amount: payload.amount,
         memo: payload.memo.trim()
-      });
-      await saveNextData(nextData);
+      };
+      nextData.expenses.push(nextExpense);
+      const validatedData = cloneBudgetData(nextData);
+      const expense = validatedData.expenses[validatedData.expenses.length - 1];
+
+      await repository.addExpense(expense);
+      data.value.expenses.push(expense);
     };
 
     const deleteExpense = async (id: string): Promise<void> => {
       await ensureInitialized();
       const nextData = cloneBudgetData(data.value);
-
       nextData.expenses = nextData.expenses.filter((expense) => expense.id !== id);
-      await saveNextData(nextData);
+      cloneBudgetData(nextData);
+
+      await repository.deleteExpense(id);
+      data.value.expenses = nextData.expenses;
     };
 
     const getMonthlyExpenseStats = (year: string) => calculateMonthlyExpenseStats(year, data.value.expenses);
@@ -157,8 +161,7 @@ export function createBudgetStore(repository: BudgetRepository) {
     }): Promise<void> => {
       await ensureInitialized();
       const nextData = cloneBudgetData(data.value);
-
-      nextData.personRecords.push({
+      const nextRecord = {
         id: newId(),
         date: payload.date,
         personName: payload.personName.trim(),
@@ -166,18 +169,31 @@ export function createBudgetStore(repository: BudgetRepository) {
         amount: payload.amount,
         memo: payload.memo.trim(),
         settled: false
-      });
-      await saveNextData(nextData);
+      };
+      nextData.personRecords.push(nextRecord);
+      const validatedData = cloneBudgetData(nextData);
+      const record = validatedData.personRecords[validatedData.personRecords.length - 1];
+
+      await repository.addPersonRecord(record);
+      data.value.personRecords.push(record);
     };
 
     const togglePersonRecordSettled = async (id: string): Promise<void> => {
       await ensureInitialized();
-      const nextData = cloneBudgetData(data.value);
-      const record = nextData.personRecords.find((item) => item.id === id);
+      const record = data.value.personRecords.find((item) => item.id === id);
 
       if (record) {
-        record.settled = !record.settled;
-        await saveNextData(nextData);
+        const nextSettled = !record.settled;
+        const nextData = cloneBudgetData(data.value);
+        const nextRecord = nextData.personRecords.find((item) => item.id === id);
+
+        if (nextRecord) {
+          nextRecord.settled = nextSettled;
+        }
+        cloneBudgetData(nextData);
+
+        await repository.setPersonRecordSettled(id, nextSettled);
+        record.settled = nextSettled;
       }
     };
 
@@ -189,7 +205,17 @@ export function createBudgetStore(repository: BudgetRepository) {
 
     const importJson = async (raw: string): Promise<void> => {
       await ensureInitialized();
-      await saveNextData(parseBudgetJson(raw));
+      const parsed = parseBudgetJson(raw);
+
+      await repository.replaceAll(parsed);
+      data.value = parsed;
+    };
+
+    const reset = (): void => {
+      data.value = createEmptyBudgetData();
+      isLoaded.value = false;
+      loadError.value = '';
+      initializePromise = undefined;
     };
 
     return {
@@ -205,6 +231,7 @@ export function createBudgetStore(repository: BudgetRepository) {
       expenseYears,
       personBalances,
       initialize,
+      reset,
       setSelectedMonth,
       setIncome,
       addExpense,
@@ -218,4 +245,4 @@ export function createBudgetStore(repository: BudgetRepository) {
   });
 }
 
-export const useBudgetStore = createBudgetStore(new IndexedDbBudgetRepository());
+export const useBudgetStore = createBudgetStore(new SupabaseBudgetRepository(requireSupabaseClient));

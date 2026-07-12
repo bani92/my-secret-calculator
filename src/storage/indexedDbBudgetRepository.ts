@@ -1,5 +1,5 @@
 import { createEmptyBudgetData } from '../domain/calculations';
-import type { BudgetData } from '../domain/types';
+import type { BudgetData, Expense, MonthRecord, PersonMoneyRecord } from '../domain/types';
 import type { BudgetRepository } from './budgetRepository';
 import { parseBudgetJson, stringifyBudgetData } from './exportImport';
 
@@ -30,7 +30,49 @@ export class IndexedDbBudgetRepository implements BudgetRepository {
     }
   }
 
-  async save(data: BudgetData): Promise<void> {
+  async setIncome(record: MonthRecord): Promise<void> {
+    const data = await this.load();
+
+    data.months[record.month] = record;
+    await this.write(data);
+  }
+
+  async addExpense(expense: Expense): Promise<void> {
+    const data = await this.load();
+
+    data.expenses.push(expense);
+    await this.write(data);
+  }
+
+  async deleteExpense(id: string): Promise<void> {
+    const data = await this.load();
+
+    data.expenses = data.expenses.filter((expense) => expense.id !== id);
+    await this.write(data);
+  }
+
+  async addPersonRecord(record: PersonMoneyRecord): Promise<void> {
+    const data = await this.load();
+
+    data.personRecords.push(record);
+    await this.write(data);
+  }
+
+  async setPersonRecordSettled(id: string, settled: boolean): Promise<void> {
+    const data = await this.load();
+    const record = data.personRecords.find((item) => item.id === id);
+
+    if (record) {
+      record.settled = settled;
+    }
+    await this.write(data);
+  }
+
+  async replaceAll(data: BudgetData): Promise<void> {
+    await this.write(data);
+  }
+
+  private async write(data: BudgetData): Promise<void> {
     await this.recordStore.put(currentBudgetKey, JSON.parse(stringifyBudgetData(data)));
   }
 }

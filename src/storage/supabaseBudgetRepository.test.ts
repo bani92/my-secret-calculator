@@ -243,16 +243,6 @@ describe('SupabaseBudgetRepository', () => {
     expect(fake.from).not.toHaveBeenCalled();
   });
 
-  test('keeps save compatible by delegating to replaceAll', async () => {
-    const fake = createClient();
-    const repository = new SupabaseBudgetRepository(() => fake.client);
-    const replaceAll = vi.spyOn(repository, 'replaceAll').mockResolvedValue();
-
-    await repository.save(replacement);
-
-    expect(replaceAll).toHaveBeenCalledWith(replacement);
-  });
-
   test.each([
     ['load month rows', (repository: SupabaseBudgetRepository) => repository.load(), [failure(), success([]), success([])]],
     ['load expense rows', (repository: SupabaseBudgetRepository) => repository.load(), [success([]), failure(), success([])]],
