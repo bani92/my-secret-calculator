@@ -1,58 +1,78 @@
 <template>
   <main class="app-shell">
-    <header class="app-header">
-      <div>
-        <p class="eyebrow">개인 기록용</p>
-        <h1>로컬 가계부</h1>
-      </div>
-      <div v-if="store.isLoaded" class="backup-actions">
-        <button type="button" class="secondary-button" @click="downloadBackup">내보내기</button>
-        <label class="file-button">
-          가져오기
-          <input type="file" accept="application/json" @change="importBackup" />
-        </label>
-      </div>
-    </header>
-
-    <p v-if="statusMessage" class="status-message" role="status">{{ statusMessage }}</p>
-
-    <section v-if="!store.isLoaded" class="panel">
-      <p class="empty-copy">{{ store.loadError || '가계부를 불러오는 중입니다.' }}</p>
-      <button v-if="store.loadError" type="button" class="primary-button" @click="initializeApp">다시 시도</button>
+    <section v-if="!authStore.isInitialized" class="panel">
+      <p class="empty-copy">로그인 상태를 확인하는 중입니다.</p>
     </section>
 
-    <template v-else>
-      <nav class="tabs" aria-label="주요 화면">
-        <button
-          v-for="tab in tabs"
-          :key="tab.id"
-          type="button"
-          class="tab"
-          :class="{ active: activeTab === tab.id }"
-          :aria-selected="activeTab === tab.id"
-          @click="activeTab = tab.id"
-        >
-          {{ tab.label }}
-        </button>
-      </nav>
+    <LoginForm
+      v-else-if="!authStore.session"
+      :loading="authStore.isLoading"
+      :error-message="authStore.errorMessage"
+      @submit="login"
+    />
 
-      <LedgerTab v-if="activeTab === 'input'" :initial-expense-date="pendingExpenseDate" />
-      <DashboardTab v-else-if="activeTab === 'dashboard'" />
-      <StatisticsTab v-else-if="activeTab === 'statistics'" />
-      <CalendarTab v-else-if="activeTab === 'calendar'" @select-date="selectCalendarDate" />
-      <PersonMoneyTab v-else />
+    <template v-else>
+      <header class="app-header">
+        <div>
+          <p class="eyebrow">개인 기록용</p>
+          <h1>로컬 가계부</h1>
+        </div>
+        <div class="backup-actions">
+          <template v-if="store.isLoaded">
+            <button type="button" class="secondary-button" @click="downloadBackup">내보내기</button>
+            <label class="file-button">
+              가져오기
+              <input type="file" accept="application/json" @change="importBackup" />
+            </label>
+          </template>
+          <button type="button" class="secondary-button" aria-label="로그아웃" @click="logout">로그아웃</button>
+        </div>
+      </header>
+
+      <p v-if="statusMessage" class="status-message" role="status">{{ statusMessage }}</p>
+
+      <section v-if="!store.isLoaded" class="panel">
+        <p class="empty-copy">{{ store.loadError || '가계부를 불러오는 중입니다.' }}</p>
+        <button v-if="store.loadError" type="button" class="primary-button" @click="retryInitializeBudget">
+          다시 시도
+        </button>
+      </section>
+
+      <template v-else>
+        <nav class="tabs" aria-label="주요 화면">
+          <button
+            v-for="tab in tabs"
+            :key="tab.id"
+            type="button"
+            class="tab"
+            :class="{ active: activeTab === tab.id }"
+            :aria-selected="activeTab === tab.id"
+            @click="activeTab = tab.id"
+          >
+            {{ tab.label }}
+          </button>
+        </nav>
+
+        <LedgerTab v-if="activeTab === 'input'" :initial-expense-date="pendingExpenseDate" />
+        <DashboardTab v-else-if="activeTab === 'dashboard'" />
+        <StatisticsTab v-else-if="activeTab === 'statistics'" />
+        <CalendarTab v-else-if="activeTab === 'calendar'" @select-date="selectCalendarDate" />
+        <PersonMoneyTab v-else />
+      </template>
     </template>
   </main>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onErrorCaptured, onMounted, ref, watch } from 'vue';
 
 import CalendarTab from './components/CalendarTab.vue';
 import DashboardTab from './components/DashboardTab.vue';
 import LedgerTab from './components/LedgerTab.vue';
+import LoginForm from './components/LoginForm.vue';
 import PersonMoneyTab from './components/PersonMoneyTab.vue';
 import StatisticsTab from './components/StatisticsTab.vue';
+import { useAuthStore } from './stores/authStore';
 import { useBudgetStore } from './stores/budgetStore';
 
 type TabId = 'input' | 'dashboard' | 'statistics' | 'calendar' | 'people';
@@ -65,21 +85,76 @@ const tabs: Array<{ id: TabId; label: string }> = [
   { id: 'people', label: '사람' }
 ];
 
+const authStore = useAuthStore();
 const store = useBudgetStore();
 const activeTab = ref<TabId>('input');
 const pendingExpenseDate = ref<string | undefined>();
 const statusMessage = ref('');
 let statusTimer: ReturnType<typeof setTimeout> | undefined;
+let budgetSessionVersion = 0;
 
 onMounted(() => {
-  void initializeApp();
+  void authStore.initialize().catch(() => undefined);
 });
 
-async function initializeApp(): Promise<void> {
+watch(
+  () => authStore.session?.user.id,
+  (userId) => {
+    const version = ++budgetSessionVersion;
+    store.reset();
+
+    if (userId) {
+      void initializeBudget(version, userId);
+    }
+  },
+  { immediate: true }
+);
+
+onErrorCaptured(() => {
+  showStatus('변경사항을 저장하지 못했습니다.');
+  return false;
+});
+
+async function initializeBudget(
+  version = budgetSessionVersion,
+  userId = authStore.session?.user.id
+): Promise<void> {
   try {
     await store.initialize();
+
+    if (version !== budgetSessionVersion || authStore.session?.user.id !== userId) {
+      store.reset();
+      const currentUserId = authStore.session?.user.id;
+
+      if (currentUserId) {
+        void initializeBudget(budgetSessionVersion, currentUserId);
+      }
+    }
   } catch {
-    showStatus('가계부를 불러오지 못했습니다.');
+    if (version === budgetSessionVersion && authStore.session?.user.id === userId) {
+      showStatus('가계부를 불러오지 못했습니다.');
+    }
+  }
+}
+
+function retryInitializeBudget(): void {
+  void initializeBudget();
+}
+
+async function login(credentials: { email: string; password: string }): Promise<void> {
+  try {
+    await authStore.login(credentials.email, credentials.password);
+  } catch {
+    // The auth store exposes its own user-facing error message.
+  }
+}
+
+async function logout(): Promise<void> {
+  try {
+    await authStore.logout();
+    store.reset();
+  } catch {
+    showStatus('로그아웃하지 못했습니다.');
   }
 }
 

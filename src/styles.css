@@ -54,6 +54,26 @@ p {
   padding: var(--space-4);
 }
 
+.login-shell {
+  display: grid;
+  min-height: calc(100vh - (var(--space-4) * 2));
+  place-items: center;
+}
+
+.login-form {
+  width: min(100%, 420px);
+}
+
+.login-form .primary-button {
+  width: 100%;
+}
+
+.login-error {
+  margin-bottom: 0;
+  color: var(--color-danger);
+  font-weight: 800;
+}
+
 .app-header {
   display: flex;
   align-items: flex-end;
@@ -631,6 +651,10 @@ hr {
 @media (max-width: 640px) {
   .app-shell {
     padding: var(--space-3);
+  }
+
+  .login-shell {
+    min-height: calc(100vh - (var(--space-3) * 2));
   }
 
   .app-header {

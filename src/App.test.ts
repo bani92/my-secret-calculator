@@ -1,94 +1,94 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
-import { nextTick } from 'vue';
+import { nextTick, reactive } from 'vue';
+
+const mockedStores = vi.hoisted(() => ({
+  authStore: undefined as any,
+  budgetStore: undefined as any
+}));
+
+vi.mock('./stores/authStore', () => ({
+  useAuthStore: () => mockedStores.authStore
+}));
+
+vi.mock('./stores/budgetStore', async (importOriginal) => {
+  const original = await importOriginal<typeof import('./stores/budgetStore')>();
+
+  return {
+    ...original,
+    useBudgetStore: () => mockedStores.budgetStore
+  };
+});
 
 import App from './App.vue';
-import { getCurrentMonth } from './domain/calculations';
+import { createEmptyBudgetData } from './domain/calculations';
+import type { BudgetData } from './domain/types';
+import { createBudgetStore } from './stores/budgetStore';
+import type { BudgetRepository } from './storage/budgetRepository';
 
-const indexedDbData = new Map<string, unknown>();
-let indexedDbWritesShouldFail = false;
+let budgetData: BudgetData;
+let budgetWritesShouldFail = false;
 
-type TestIdbRequest<T> = IDBRequest<T> & {
-  onupgradeneeded?: ((event: IDBVersionChangeEvent) => void) | null;
-};
-
-function createRequest<T>(result: T): TestIdbRequest<T> {
-  return {
-    result,
-    error: null,
-    onsuccess: null,
-    onerror: null,
-    onupgradeneeded: null
-  } as TestIdbRequest<T>;
+function cloneBudgetData(data: BudgetData): BudgetData {
+  return JSON.parse(JSON.stringify(data)) as BudgetData;
 }
 
-function installIndexedDbTestDouble(): void {
-  const database = {
-    objectStoreNames: {
-      contains: () => true
-    },
-    createObjectStore: () => undefined,
-    transaction: () => {
-      const transaction = {
-        error: null as DOMException | null,
-        oncomplete: null,
-        onerror: null,
-        onabort: null,
-        objectStore: () => ({
-          get: (key: string) => {
-            const request = createRequest(indexedDbData.get(key));
-            queueMicrotask(() => request.onsuccess?.({} as Event));
-
-            return request;
-          },
-          put: (value: unknown, key: string) => {
-            if (indexedDbWritesShouldFail) {
-              queueMicrotask(() => {
-                transaction.error = new DOMException('save failed');
-                const onerror = transaction.onerror as ((event: Event) => void) | null;
-                onerror?.({} as Event);
-              });
-
-              return;
-            }
-
-            indexedDbData.set(key, value);
-            queueMicrotask(() => {
-              const oncomplete = transaction.oncomplete as ((event: Event) => void) | null;
-              oncomplete?.({} as Event);
-            });
-          }
-        })
-      };
-
-      return transaction;
-    }
-  };
-
-  const indexedDB = {
-    open: () => {
-      const request = createRequest(database);
-
-      queueMicrotask(() => {
-        request.onupgradeneeded?.({} as IDBVersionChangeEvent);
-        request.onsuccess?.({} as Event);
-      });
-
-      return request;
-    }
-  };
-
-  Object.defineProperty(globalThis, 'indexedDB', {
-    configurable: true,
-    value: indexedDB
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
   });
+
+  return { promise, resolve, reject };
+}
+
+function createInMemoryRepository(): BudgetRepository {
+  const ensureWritable = (): void => {
+    if (budgetWritesShouldFail) {
+      throw new Error('save failed');
+    }
+  };
+
+  return {
+    load: async () => cloneBudgetData(budgetData),
+    setIncome: async (record) => {
+      ensureWritable();
+      budgetData.months[record.month] = record;
+    },
+    addExpense: async (expense) => {
+      ensureWritable();
+      budgetData.expenses.push(expense);
+    },
+    deleteExpense: async (id) => {
+      ensureWritable();
+      budgetData.expenses = budgetData.expenses.filter((expense) => expense.id !== id);
+    },
+    addPersonRecord: async (record) => {
+      ensureWritable();
+      budgetData.personRecords.push(record);
+    },
+    setPersonRecordSettled: async (id, settled) => {
+      ensureWritable();
+      const record = budgetData.personRecords.find((item) => item.id === id);
+
+      if (record) {
+        record.settled = settled;
+      }
+    },
+    replaceAll: async (data) => {
+      ensureWritable();
+      budgetData = cloneBudgetData(data);
+    }
+  };
 }
 
 async function mountLoadedApp() {
   const wrapper = mount(App, { global: { plugins: [createPinia()] } });
 
-  expect(wrapper.text()).toContain('가계부를 불러오는 중입니다');
+  expect(wrapper.text()).toContain('로그인 상태를 확인하는 중입니다');
   await flushPromises();
 
   return wrapper;
@@ -101,11 +101,37 @@ async function flushAsyncActions(): Promise<void> {
 
 describe('App', () => {
   beforeEach(() => {
-    localStorage.clear();
-    indexedDbData.clear();
-    indexedDbWritesShouldFail = false;
-    installIndexedDbTestDouble();
     setActivePinia(createPinia());
+    budgetData = createEmptyBudgetData();
+    budgetWritesShouldFail = false;
+
+    const useTestBudgetStore = createBudgetStore(createInMemoryRepository());
+    const budgetStore = useTestBudgetStore();
+    const initialize = budgetStore.initialize;
+    const reset = budgetStore.reset;
+    const togglePersonRecordSettled = budgetStore.togglePersonRecordSettled;
+
+    budgetStore.initialize = vi.fn(initialize);
+    budgetStore.reset = vi.fn(reset);
+    budgetStore.togglePersonRecordSettled = vi.fn(async (id) => {
+      await togglePersonRecordSettled(id);
+      budgetStore.data = cloneBudgetData(budgetStore.data);
+    });
+    mockedStores.budgetStore = budgetStore;
+
+    const authStore = reactive({
+      session: { user: { id: 'owner-id' } },
+      isInitialized: false,
+      isLoading: false,
+      errorMessage: '',
+      initialize: vi.fn(async () => {
+        authStore.isInitialized = true;
+      }),
+      login: vi.fn(async () => undefined),
+      logout: vi.fn(async () => undefined)
+    });
+
+    mockedStores.authStore = authStore;
 
     let idCounter = 0;
     vi.spyOn(crypto, 'randomUUID').mockImplementation(
@@ -116,6 +142,116 @@ describe('App', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();
+  });
+
+  test('shows the login form when there is no authenticated session', async () => {
+    mockedStores.authStore.session = null;
+    mockedStores.authStore.isInitialized = true;
+
+    const wrapper = mount(App, { global: { plugins: [createPinia()] } });
+
+    expect(wrapper.text()).toContain('가계부 로그인');
+    expect(wrapper.text()).not.toContain('월 수입');
+  });
+
+  test('sends login credentials to the auth store', async () => {
+    mockedStores.authStore.session = null;
+    mockedStores.authStore.isInitialized = true;
+    const wrapper = mount(App, { global: { plugins: [createPinia()] } });
+
+    await wrapper.get('[aria-label="이메일"]').setValue('owner@example.com');
+    await wrapper.get('[aria-label="비밀번호"]').setValue('password');
+    await wrapper.get('form').trigger('submit');
+
+    expect(mockedStores.authStore.login).toHaveBeenCalledWith('owner@example.com', 'password');
+  });
+
+  test('logs out and resets the budget store', async () => {
+    const wrapper = await mountLoadedApp();
+    mockedStores.budgetStore.reset.mockClear();
+
+    await wrapper.get('[aria-label="로그아웃"]').trigger('click');
+
+    expect(mockedStores.authStore.logout).toHaveBeenCalledOnce();
+    expect(mockedStores.budgetStore.reset).toHaveBeenCalled();
+  });
+
+  test('initializes the budget store for an authenticated session', async () => {
+    await mountLoadedApp();
+
+    expect(mockedStores.budgetStore.initialize).toHaveBeenCalled();
+  });
+
+  test('removes the budget UI when the authenticated session is cleared', async () => {
+    const wrapper = await mountLoadedApp();
+
+    mockedStores.authStore.session = null;
+    await nextTick();
+
+    expect(wrapper.text()).toContain('가계부 로그인');
+    expect(wrapper.text()).not.toContain('월 수입');
+  });
+
+  test('keeps the budget store reset when a previous session load resolves after logout', async () => {
+    const delayedInitialize = createDeferred<void>();
+    mockedStores.budgetStore.initialize = vi.fn(async () => {
+      await delayedInitialize.promise;
+      mockedStores.budgetStore.isLoaded = true;
+    });
+    const wrapper = mount(App, { global: { plugins: [createPinia()] } });
+
+    await flushPromises();
+    mockedStores.budgetStore.reset.mockClear();
+    mockedStores.authStore.session = null;
+    await nextTick();
+
+    delayedInitialize.resolve();
+    await flushPromises();
+    await nextTick();
+
+    expect(mockedStores.budgetStore.reset).toHaveBeenCalled();
+    expect(mockedStores.budgetStore.isLoaded).toBe(false);
+    expect(wrapper.text()).toContain('가계부 로그인');
+  });
+
+  test('reloads the current session when a previous session load resolves after switching users', async () => {
+    const firstInitialize = createDeferred<void>();
+    const secondInitialize = createDeferred<void>();
+    const reloadCurrentInitialize = createDeferred<void>();
+    const initializeCalls = [firstInitialize, secondInitialize, reloadCurrentInitialize];
+    mockedStores.budgetStore.initialize = vi.fn(async () => {
+      const nextInitialize = initializeCalls.shift();
+
+      if (!nextInitialize) {
+        return;
+      }
+
+      await nextInitialize.promise;
+      mockedStores.budgetStore.isLoaded = true;
+    });
+    mount(App, { global: { plugins: [createPinia()] } });
+
+    await flushPromises();
+    mockedStores.authStore.session = { user: { id: 'next-owner-id' } };
+    await nextTick();
+    secondInitialize.resolve();
+    await flushPromises();
+    await nextTick();
+
+    expect(mockedStores.budgetStore.isLoaded).toBe(true);
+
+    firstInitialize.resolve();
+    await flushPromises();
+    await nextTick();
+
+    expect(mockedStores.budgetStore.initialize).toHaveBeenCalledTimes(3);
+    expect(mockedStores.budgetStore.isLoaded).toBe(false);
+
+    reloadCurrentInitialize.resolve();
+    await flushPromises();
+    await nextTick();
+
+    expect(mockedStores.budgetStore.isLoaded).toBe(true);
   });
 
   test('starts on the input tab and records income and expenses', async () => {
@@ -419,7 +555,7 @@ describe('App', () => {
   test('does not expose backup actions before data is loaded', async () => {
     const wrapper = mount(App, { global: { plugins: [createPinia()] } });
 
-    expect(wrapper.text()).toContain('가계부를 불러오는 중입니다');
+    expect(wrapper.text()).toContain('로그인 상태를 확인하는 중입니다');
     expect(wrapper.findAll('button').some((button) => button.text() === '내보내기')).toBe(false);
     expect(wrapper.find('input[type="file"]').exists()).toBe(false);
 
@@ -429,28 +565,27 @@ describe('App', () => {
     expect(wrapper.find('input[type="file"]').exists()).toBe(true);
   });
 
-  test('shows a persistence failure message when import cannot be saved', async () => {
-    const currentMonth = getCurrentMonth();
-
-    indexedDbData.set('current', {
-      version: 1,
-      months: {
-        [currentMonth]: { month: currentMonth, income: 100_000 }
-      },
-      expenses: [
-        {
-          id: 'existing-expense',
-          date: `${currentMonth}-10`,
-          month: currentMonth,
-          categoryId: 'lunch',
-          amount: 10_000,
-          memo: 'existing lunch'
-        }
-      ],
-      personRecords: []
-    });
-
+  test('shows a generic message when a budget action cannot be saved', async () => {
     const wrapper = await mountLoadedApp();
+    budgetWritesShouldFail = true;
+
+    await wrapper.get('[aria-label="월 수입"]').setValue('100000');
+    await wrapper.get('[data-testid="save-income"]').trigger('click');
+    await flushAsyncActions();
+
+    expect(wrapper.text()).toContain('변경사항을 저장하지 못했습니다.');
+  });
+
+  test('shows a persistence failure message when import cannot be saved', async () => {
+    const wrapper = await mountLoadedApp();
+    const currentMonth = mockedStores.budgetStore.selectedMonth;
+    await wrapper.get('[aria-label="월 수입"]').setValue('100000');
+    await wrapper.get('[data-testid="save-income"]').trigger('click');
+    await wrapper.get('[aria-label="지출 금액"]').setValue('10000');
+    await wrapper.get('[aria-label="지출 메모"]').setValue('existing lunch');
+    await wrapper.get('[data-testid="expense-form"]').trigger('submit');
+    await flushAsyncActions();
+
     const validBackup = JSON.stringify({
       version: 1,
       months: {
@@ -471,7 +606,7 @@ describe('App', () => {
     const file = new File([validBackup], 'backup.json', { type: 'application/json' });
     const input = wrapper.get<HTMLInputElement>('input[type="file"]');
 
-    indexedDbWritesShouldFail = true;
+    budgetWritesShouldFail = true;
     Object.defineProperty(input.element, 'files', {
       configurable: true,
       value: [file]
