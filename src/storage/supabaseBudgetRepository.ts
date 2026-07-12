@@ -26,11 +26,18 @@ export interface SupabaseBudgetQuery extends PromiseLike<SupabaseQueryResponse<u
   neq(column: string, value: unknown): SupabaseBudgetQuery;
 }
 
+interface ReplaceBudgetDataPayload {
+  p_months: Array<Pick<MonthIncomeRow, 'month' | 'income'>>;
+  p_expenses: ExpenseRow[];
+  p_person_records: PersonMoneyRecordRow[];
+}
+
 export interface SupabaseBudgetDataClient {
   from(table: BudgetTable): SupabaseBudgetQuery;
-  auth: {
-    getUser(): Promise<SupabaseQueryResponse<{ user: { id: string } | null }>>;
-  };
+  rpc(
+    functionName: 'replace_budget_data',
+    payload: ReplaceBudgetDataPayload
+  ): Promise<SupabaseQueryResponse<unknown>>;
 }
 
 interface MonthIncomeRow {
@@ -177,30 +184,16 @@ export class SupabaseBudgetRepository implements BudgetRepository {
   }
 
   async replaceAll(data: BudgetData): Promise<void> {
-    const client = this.getClient();
-    const userResponse = await client.auth.getUser();
-    ensureSuccess(userResponse);
+    const response = await this.getClient().rpc('replace_budget_data', {
+      p_months: Object.values(data.months).map((record) => ({
+        month: record.month,
+        income: record.income
+      })),
+      p_expenses: data.expenses.map(toExpenseRow),
+      p_person_records: data.personRecords.map(toPersonMoneyRecordRow)
+    });
 
-    const user = userResponse.data?.user;
-    if (!user) {
-      throw new Error(repositoryErrorMessage);
-    }
-
-    const deleteResponses = await Promise.all([
-      client.from('month_incomes').delete().eq('user_id', user.id),
-      client.from('expenses').delete().eq('user_id', user.id),
-      client.from('person_money_records').delete().eq('user_id', user.id)
-    ]);
-    deleteResponses.forEach(ensureSuccess);
-
-    const insertResponses = await Promise.all([
-      client
-        .from('month_incomes')
-        .insert(Object.values(data.months).map((record) => ({ month: record.month, income: record.income }))),
-      client.from('expenses').insert(data.expenses.map(toExpenseRow)),
-      client.from('person_money_records').insert(data.personRecords.map(toPersonMoneyRecordRow))
-    ]);
-    insertResponses.forEach(ensureSuccess);
+    ensureSuccess(response);
   }
 
   async save(data: BudgetData): Promise<void> {

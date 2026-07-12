@@ -79,5 +79,71 @@ for all to authenticated
 using ((select auth.uid()) = user_id)
 with check ((select auth.uid()) = user_id);
 
+create or replace function public.replace_budget_data(
+  p_months jsonb,
+  p_expenses jsonb,
+  p_person_records jsonb
+)
+returns void
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_user_id uuid := auth.uid();
+begin
+  if v_user_id is null then
+    raise exception 'authentication is required' using errcode = '42501';
+  end if;
+
+  delete from public.month_incomes where user_id = v_user_id;
+  delete from public.expenses where user_id = v_user_id;
+  delete from public.person_money_records where user_id = v_user_id;
+
+  insert into public.month_incomes (user_id, month, income)
+  select
+    v_user_id,
+    item.value ->> 'month',
+    (item.value ->> 'income')::integer
+  from pg_catalog.jsonb_array_elements(p_months) as item(value);
+
+  insert into public.expenses (id, user_id, date, month, category_id, amount, memo)
+  select
+    (item.value ->> 'id')::uuid,
+    v_user_id,
+    (item.value ->> 'date')::date,
+    item.value ->> 'month',
+    item.value ->> 'category_id',
+    (item.value ->> 'amount')::integer,
+    item.value ->> 'memo'
+  from pg_catalog.jsonb_array_elements(p_expenses) as item(value);
+
+  insert into public.person_money_records (
+    id,
+    user_id,
+    date,
+    person_name,
+    direction,
+    amount,
+    memo,
+    settled
+  )
+  select
+    (item.value ->> 'id')::uuid,
+    v_user_id,
+    (item.value ->> 'date')::date,
+    item.value ->> 'person_name',
+    item.value ->> 'direction',
+    (item.value ->> 'amount')::integer,
+    item.value ->> 'memo',
+    (item.value ->> 'settled')::boolean
+  from pg_catalog.jsonb_array_elements(p_person_records) as item(value);
+end;
+$$;
+
 revoke all on public.month_incomes, public.expenses, public.person_money_records from anon;
 grant select, insert, update, delete on public.month_incomes, public.expenses, public.person_money_records to authenticated;
+
+revoke all on function public.replace_budget_data(jsonb, jsonb, jsonb) from public;
+revoke all on function public.replace_budget_data(jsonb, jsonb, jsonb) from anon;
+grant execute on function public.replace_budget_data(jsonb, jsonb, jsonb) to authenticated;

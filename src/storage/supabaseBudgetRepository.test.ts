@@ -71,6 +71,7 @@ function failure(): QueryResult {
 
 function createClient(
   queryResults: QueryResult[] = [],
+  rpcResult: QueryResult = success(),
   userResult: SupabaseQueryResponse<{ user: { id: string } | null }> = {
     data: { user: { id: 'owner-1' } },
     error: null
@@ -85,15 +86,18 @@ function createClient(
     return query;
   });
   const getUser = vi.fn(async () => userResult);
-  const client: SupabaseBudgetDataClient = {
+  const rpc = vi.fn(async () => rpcResult);
+  const client = {
     from,
-    auth: { getUser }
-  };
+    auth: { getUser },
+    rpc
+  } as unknown as SupabaseBudgetDataClient;
 
   return {
     client,
     from,
     getUser,
+    rpc,
     queriesFor: (table: string): FakeFluentQuery[] => queriesByTable.get(table) ?? []
   };
 }
@@ -204,42 +208,39 @@ describe('SupabaseBudgetRepository', () => {
     expect(query.eq).toHaveBeenCalledWith('id', personRecord.id);
   });
 
-  test('replaces only the authenticated users rows and inserts replacement rows without user_id', async () => {
-    const fake = createClient(Array.from({ length: 6 }, () => success()));
+  test('replaces all data with one transactional RPC and snake_case payloads', async () => {
+    const fake = createClient();
     const repository = new SupabaseBudgetRepository(() => fake.client);
 
     await repository.replaceAll(replacement);
 
-    expect(fake.getUser).toHaveBeenCalledOnce();
-    for (const table of ['month_incomes', 'expenses', 'person_money_records']) {
-      const [deleteQuery] = fake.queriesFor(table);
-      expect(deleteQuery.delete).toHaveBeenCalledOnce();
-      expect(deleteQuery.eq).toHaveBeenCalledWith('user_id', 'owner-1');
-    }
-    expect(fake.queriesFor('month_incomes')[1].insert).toHaveBeenCalledWith([
-      { month: month.month, income: month.income }
-    ]);
-    expect(fake.queriesFor('expenses')[1].insert).toHaveBeenCalledWith([
-      {
-        id: expense.id,
-        date: expense.date,
-        month: expense.month,
-        category_id: expense.categoryId,
-        amount: expense.amount,
-        memo: expense.memo
-      }
-    ]);
-    expect(fake.queriesFor('person_money_records')[1].insert).toHaveBeenCalledWith([
-      {
-        id: personRecord.id,
-        date: personRecord.date,
-        person_name: personRecord.personName,
-        direction: personRecord.direction,
-        amount: personRecord.amount,
-        memo: personRecord.memo,
-        settled: personRecord.settled
-      }
-    ]);
+    expect(fake.rpc).toHaveBeenCalledTimes(1);
+    expect(fake.rpc).toHaveBeenCalledWith('replace_budget_data', {
+      p_months: [{ month: month.month, income: month.income }],
+      p_expenses: [
+        {
+          id: expense.id,
+          date: expense.date,
+          month: expense.month,
+          category_id: expense.categoryId,
+          amount: expense.amount,
+          memo: expense.memo
+        }
+      ],
+      p_person_records: [
+        {
+          id: personRecord.id,
+          date: personRecord.date,
+          person_name: personRecord.personName,
+          direction: personRecord.direction,
+          amount: personRecord.amount,
+          memo: personRecord.memo,
+          settled: personRecord.settled
+        }
+      ]
+    });
+    expect(fake.getUser).not.toHaveBeenCalled();
+    expect(fake.from).not.toHaveBeenCalled();
   });
 
   test('keeps save compatible by delegating to replaceAll', async () => {
@@ -268,25 +269,12 @@ describe('SupabaseBudgetRepository', () => {
     await expect(operation(repository)).rejects.toThrow('Supabase 가계부 요청이 실패했습니다.');
   });
 
-  test.each([0, 1, 2, 3, 4, 5])(
-    'returns the generic error when replacement request %i fails',
-    async (failureIndex) => {
-      const queryResults = Array.from({ length: 6 }, (_, index) =>
-        index === failureIndex ? failure() : success()
-      );
-      const fake = createClient(queryResults);
-      const repository = new SupabaseBudgetRepository(() => fake.client);
-
-      await expect(repository.replaceAll(replacement)).rejects.toThrow(
-        'Supabase 가계부 요청이 실패했습니다.'
-      );
-    }
-  );
-
-  test('returns the generic error when the authenticated user cannot be read for replacement', async () => {
-    const fake = createClient([], { data: { user: null }, error: requestError });
+  test('returns the generic error when the replacement RPC fails', async () => {
+    const fake = createClient([], failure());
     const repository = new SupabaseBudgetRepository(() => fake.client);
 
     await expect(repository.replaceAll(replacement)).rejects.toThrow('Supabase 가계부 요청이 실패했습니다.');
+    expect(fake.rpc).toHaveBeenCalledTimes(1);
+    expect(fake.from).not.toHaveBeenCalled();
   });
 });
