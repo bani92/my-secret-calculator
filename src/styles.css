@@ -689,17 +689,31 @@ hr {
   }
 
   .calendar-grid {
-    gap: 6px;
+    gap: 4px;
   }
 
   .date-cell {
-    min-height: 104px;
-    padding: 30px var(--space-2) var(--space-2);
+    min-width: 0;
+    min-height: 86px;
+    padding: 26px 4px 6px;
   }
 
   .expense-list li {
-    padding: 4px 5px;
-    font-size: 0.74rem;
+    overflow: hidden;
+    padding: 3px 4px;
+    font-size: 0.68rem;
+    overflow-wrap: normal;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .expense-list strong,
+  .expense-list span {
+    display: inline;
+  }
+
+  .expense-list strong::after {
+    content: ' ';
   }
 
   .expense-count {
