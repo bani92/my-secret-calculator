@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
 
 import type { BudgetData, Expense, MonthRecord, PersonMoneyRecord } from '../domain/types';
 import {
@@ -275,6 +276,15 @@ describe('SupabaseBudgetRepository', () => {
     });
     expect(fake.getUser).not.toHaveBeenCalled();
     expect(fake.from).not.toHaveBeenCalled();
+  });
+
+  test('schema preserves imported created_at and falls back to expense date', () => {
+    const schema = readFileSync('supabase/schema.sql', 'utf8');
+
+    expect(schema).toContain(
+      "coalesce((item.value ->> 'created_at')::timestamptz, (item.value ->> 'date')::timestamptz)"
+    );
+    expect(schema).not.toContain("coalesce((item.value ->> 'created_at')::timestamptz, now())");
   });
 
   test.each([

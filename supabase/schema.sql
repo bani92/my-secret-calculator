@@ -116,7 +116,7 @@ begin
     item.value ->> 'category_id',
     (item.value ->> 'amount')::integer,
     item.value ->> 'memo',
-    coalesce((item.value ->> 'created_at')::timestamptz, now())
+    coalesce((item.value ->> 'created_at')::timestamptz, (item.value ->> 'date')::timestamptz)
   from pg_catalog.jsonb_array_elements(p_expenses) as item(value);
 
   insert into public.person_money_records (
