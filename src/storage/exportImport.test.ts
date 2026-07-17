@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
+import { createEmptyBudgetData } from '../domain/calculations';
 import type { BudgetData } from '../domain/types';
 import { parseBudgetJson, stringifyBudgetData } from './exportImport';
 
@@ -41,6 +42,32 @@ describe('budget export and import', () => {
 
   test('parseBudgetJson accepts valid BudgetData', () => {
     expect(parseBudgetJson(JSON.stringify(sampleBudgetData))).toEqual(sampleBudgetData);
+  });
+
+  test('preserves expense createdAt during export and import', () => {
+    const data = createEmptyBudgetData();
+    data.expenses.push({
+      id: 'expense-id',
+      date: '2026-07-17',
+      month: '2026-07',
+      categoryId: 'lunch',
+      amount: 9000,
+      memo: '점심',
+      createdAt: '2026-07-17T01:02:03.000Z'
+    });
+
+    expect(parseBudgetJson(stringifyBudgetData(data)).expenses[0].createdAt).toBe('2026-07-17T01:02:03.000Z');
+  });
+
+  test('parseBudgetJson rejects an expense with a non-string createdAt', () => {
+    expect(() =>
+      parseBudgetJson(
+        JSON.stringify({
+          ...sampleBudgetData,
+          expenses: [{ ...sampleBudgetData.expenses[0], createdAt: 123 }]
+        })
+      )
+    ).toThrow('지원하지 않는 백업 파일입니다');
   });
 
   test('parseBudgetJson rejects unsupported version', () => {

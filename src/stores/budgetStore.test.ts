@@ -361,6 +361,72 @@ describe('useBudgetStore', () => {
     expect(store.data.expenses).toEqual([]);
   });
 
+  test('sorts selected month expenses by createdAt descending', async () => {
+    const repository = new MemoryBudgetRepository({
+      ...createEmptyBudgetData(),
+      expenses: [
+        {
+          id: 'older-created',
+          date: '2026-07-17',
+          month: '2026-07',
+          categoryId: 'lunch',
+          amount: 9000,
+          memo: '늦은 날짜',
+          createdAt: '2026-07-01T10:00:00.000Z'
+        },
+        {
+          id: 'newer-created',
+          date: '2026-07-01',
+          month: '2026-07',
+          categoryId: 'living',
+          amount: 12000,
+          memo: '최근 등록',
+          createdAt: '2026-07-17T10:00:00.000Z'
+        }
+      ],
+      months: {},
+      personRecords: []
+    });
+    const store = createBudgetStore(repository)();
+
+    await store.initialize();
+    store.setSelectedMonth('2026-07');
+
+    expect(store.monthExpenses.map((expense) => expense.id)).toEqual(['newer-created', 'older-created']);
+  });
+
+  test('falls back to date sorting when createdAt is missing', async () => {
+    const repository = new MemoryBudgetRepository({
+      ...createEmptyBudgetData(),
+      expenses: [
+        {
+          id: 'first',
+          date: '2026-07-01',
+          month: '2026-07',
+          categoryId: 'lunch',
+          amount: 9000,
+          memo: ''
+        },
+        {
+          id: 'second',
+          date: '2026-07-02',
+          month: '2026-07',
+          categoryId: 'living',
+          amount: 12000,
+          memo: ''
+        }
+      ],
+      months: {},
+      personRecords: []
+    });
+    const store = createBudgetStore(repository)();
+
+    await store.initialize();
+    store.setSelectedMonth('2026-07');
+
+    expect(store.monthExpenses.map((expense) => expense.id)).toEqual(['second', 'first']);
+  });
+
   test('derives expense statistics for years and months', async () => {
     const { store } = createBudgetStoreForTest();
     await store.initialize();

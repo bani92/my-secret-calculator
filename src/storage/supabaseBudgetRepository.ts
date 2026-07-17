@@ -55,6 +55,7 @@ interface ExpenseRow {
   category_id: CategoryId;
   amount: number;
   memo: string;
+  created_at?: string;
 }
 
 interface PersonMoneyRecordRow {
@@ -86,7 +87,8 @@ function toExpenseRow(expense: Expense): ExpenseRow {
     month: expense.month,
     category_id: expense.categoryId,
     amount: expense.amount,
-    memo: expense.memo
+    memo: expense.memo,
+    ...(expense.createdAt === undefined ? {} : { created_at: expense.createdAt })
   };
 }
 
@@ -138,7 +140,8 @@ export class SupabaseBudgetRepository implements BudgetRepository {
         month: row.month,
         categoryId: row.category_id,
         amount: row.amount,
-        memo: row.memo
+        memo: row.memo,
+        createdAt: row.created_at
       })),
       personRecords: personRows.map((row) => ({
         id: row.id,

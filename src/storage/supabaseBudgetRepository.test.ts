@@ -113,7 +113,8 @@ describe('SupabaseBudgetRepository', () => {
           month: expense.month,
           category_id: expense.categoryId,
           amount: expense.amount,
-          memo: expense.memo
+          memo: expense.memo,
+          created_at: '2026-07-11T03:04:05.000Z'
         }
       ]),
       success([
@@ -133,7 +134,11 @@ describe('SupabaseBudgetRepository', () => {
     const data = await repository.load();
 
     expect(data.months['2026-07']).toEqual({ month: '2026-07', income: 3_000_000 });
-    expect(data.expenses[0]).toMatchObject({ categoryId: 'lunch', amount: 12_000 });
+    expect(data.expenses[0]).toMatchObject({
+      categoryId: 'lunch',
+      amount: 12_000,
+      createdAt: '2026-07-11T03:04:05.000Z'
+    });
     expect(data.personRecords[0]).toMatchObject({ personName: '민수', settled: false });
     expect(fake.from).toHaveBeenCalledWith('month_incomes');
     expect(fake.from).toHaveBeenCalledWith('expenses');

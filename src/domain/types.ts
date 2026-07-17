@@ -23,6 +23,7 @@ export interface Expense {
   categoryId: CategoryId;
   amount: number;
   memo: string;
+  createdAt?: string;
 }
 
 export interface PersonMoneyRecord {

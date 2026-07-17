@@ -10,7 +10,7 @@ import {
   getCurrentMonth,
   toMonth
 } from '../domain/calculations';
-import type { BudgetData, CategoryId, PersonMoneyDirection } from '../domain/types';
+import type { BudgetData, CategoryId, Expense, PersonMoneyDirection } from '../domain/types';
 import type { BudgetRepository } from '../storage/budgetRepository';
 import { parseBudgetJson, stringifyBudgetData } from '../storage/exportImport';
 import { requireSupabaseClient } from '../lib/supabaseClient';
@@ -42,6 +42,7 @@ const newId = (): string => {
 };
 
 const cloneBudgetData = (budgetData: BudgetData): BudgetData => parseBudgetJson(stringifyBudgetData(budgetData));
+const expenseSortKey = (expense: Expense): string => expense.createdAt ?? `${expense.date}T00:00:00.000Z`;
 
 export function createBudgetStore(repository: BudgetRepository) {
   return defineStore('budget', () => {
@@ -57,7 +58,7 @@ export function createBudgetStore(repository: BudgetRepository) {
     const monthExpenses = computed(() =>
       data.value.expenses
         .filter((expense) => expense.month === selectedMonth.value)
-        .sort((left, right) => right.date.localeCompare(left.date))
+        .sort((left, right) => expenseSortKey(right).localeCompare(expenseSortKey(left)))
     );
     const registeredMonths = computed(() => {
       const months = new Set<string>(Object.keys(data.value.months));

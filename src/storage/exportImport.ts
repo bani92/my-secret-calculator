@@ -69,7 +69,8 @@ function isExpense(value: unknown): value is BudgetData['expenses'][number] {
     typeof value.categoryId === 'string' &&
     supportedCategoryIds.has(value.categoryId) &&
     isFiniteNumber(value.amount) &&
-    typeof value.memo === 'string'
+    typeof value.memo === 'string' &&
+    (typeof value.createdAt === 'undefined' || typeof value.createdAt === 'string')
   );
 }
 
