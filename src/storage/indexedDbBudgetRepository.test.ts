@@ -92,7 +92,7 @@ describe('IndexedDbBudgetRepository', () => {
     });
   });
 
-  test('updates an existing expense while preserving its created time', async () => {
+  test('replaces an existing expense with the full next expense', async () => {
     await repository.replaceAll(sampleBudgetData);
     const expense = {
       ...sampleBudgetData.expenses[0],

@@ -172,7 +172,7 @@ export function createBudgetStore(repository: BudgetRepository) {
     }): Promise<void> => {
       await ensureInitialized();
 
-      if (payload.amount <= 0) {
+      if (!Number.isFinite(payload.amount) || payload.amount <= 0) {
         throw new Error('지출 금액은 0원보다 커야 합니다.');
       }
 

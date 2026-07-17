@@ -464,6 +464,38 @@ describe('useBudgetStore', () => {
     });
   });
 
+  test('rejects NaN expense updates without saving', async () => {
+    const repository = new MemoryBudgetRepository({
+      ...createEmptyBudgetData(),
+      expenses: [
+        {
+          id: 'expense-id',
+          date: '2026-07-17',
+          month: '2026-07',
+          categoryId: 'lunch',
+          amount: 9000,
+          memo: '점심'
+        }
+      ]
+    });
+    const { store } = createBudgetStoreForTest(repository);
+
+    await store.initialize();
+
+    await expect(
+      store.updateExpense({
+        id: 'expense-id',
+        date: '2026-07-17',
+        categoryId: 'lunch',
+        amount: Number.NaN,
+        memo: '잘못된 금액'
+      })
+    ).rejects.toThrow('지출 금액은 0원보다 커야 합니다.');
+
+    expect(repository.updateExpenseCount).toBe(0);
+    expect(store.data.expenses[0].amount).toBe(9000);
+  });
+
   test('sorts selected month expenses by createdAt descending', async () => {
     const repository = new MemoryBudgetRepository({
       ...createEmptyBudgetData(),
