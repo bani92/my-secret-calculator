@@ -289,6 +289,60 @@ describe('App', () => {
     expect(wrapper.text()).toContain('점심');
   });
 
+  test('edits a recent expense from the popup', async () => {
+    budgetData.expenses.push({
+      id: 'expense-id',
+      date: '2026-07-10',
+      month: '2026-07',
+      categoryId: 'lunch',
+      amount: 12_000,
+      memo: '기존 메모',
+      createdAt: '2026-07-10T00:00:00.000Z'
+    });
+    const wrapper = await mountLoadedApp();
+
+    await wrapper.get('[data-testid="edit-expense-expense-id"]').trigger('click');
+    expect(wrapper.text()).toContain('지출 수정');
+    await wrapper.get('[data-testid="edit-expense-date"]').setValue('2026-08-01');
+    await wrapper.get('[data-testid="edit-expense-category"]').setValue('living');
+    await wrapper.get('[data-testid="edit-expense-amount"]').setValue('15,000');
+    await wrapper.get('[data-testid="edit-expense-memo"]').setValue('수정된 메모');
+    await wrapper.get('[data-testid="confirm-edit-expense"]').trigger('click');
+    await flushAsyncActions();
+
+    expect(wrapper.text()).toContain('수정된 메모');
+    expect(wrapper.text()).toContain('15,000원');
+    expect(mockedStores.budgetStore.data.expenses).toEqual([
+      expect.objectContaining({
+        id: 'expense-id',
+        date: '2026-08-01',
+        month: '2026-08',
+        categoryId: 'living',
+        amount: 15_000,
+        memo: '수정된 메모',
+        createdAt: '2026-07-10T00:00:00.000Z'
+      })
+    ]);
+  });
+
+  test('shows an error when an edited expense amount is zero', async () => {
+    budgetData.expenses.push({
+      id: 'expense-id',
+      date: '2026-07-10',
+      month: '2026-07',
+      categoryId: 'lunch',
+      amount: 12_000,
+      memo: '기존 메모'
+    });
+    const wrapper = await mountLoadedApp();
+
+    await wrapper.get('[data-testid="edit-expense-expense-id"]').trigger('click');
+    await wrapper.get('[data-testid="edit-expense-amount"]').setValue('0');
+    await wrapper.get('[data-testid="confirm-edit-expense"]').trigger('click');
+
+    expect(wrapper.text()).toContain('지출 금액은 0원보다 커야 합니다.');
+  });
+
   test('keeps the formatted income input after saving', async () => {
     const wrapper = await mountLoadedApp();
 

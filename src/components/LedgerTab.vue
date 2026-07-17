@@ -102,6 +102,14 @@
             </div>
             <div class="record-actions">
               <strong>{{ formatWon(expense.amount) }}</strong>
+              <button
+                type="button"
+                class="icon-button"
+                :data-testid="`edit-expense-${expense.id}`"
+                @click="openExpenseEdit(expense)"
+              >
+                수정
+              </button>
               <button type="button" class="icon-button danger" aria-label="지출 삭제" @click="store.deleteExpense(expense.id)">
                 삭제
               </button>
@@ -158,6 +166,47 @@
         </div>
       </section>
     </div>
+
+    <div v-if="editingExpenseId" class="dialog-backdrop" @click.self="closeExpenseEdit">
+      <section class="dialog-panel" role="dialog" aria-modal="true" aria-label="지출 수정">
+        <h3>지출 수정</h3>
+        <div class="dialog-form-grid">
+          <label>
+            날짜
+            <input v-model="expenseEditForm.date" data-testid="edit-expense-date" type="date" required />
+          </label>
+          <label>
+            분류
+            <select v-model="expenseEditForm.categoryId" data-testid="edit-expense-category">
+              <option v-for="category in categories" :key="category.id" :value="category.id">
+                {{ category.label }}
+              </option>
+            </select>
+          </label>
+          <label>
+            금액
+            <input
+              :value="expenseEditAmountDraft"
+              data-testid="edit-expense-amount"
+              type="text"
+              inputmode="numeric"
+              @input="expenseEditAmountDraft = formatMoneyInput(($event.target as HTMLInputElement).value)"
+            />
+          </label>
+          <label class="wide">
+            메모
+            <input v-model="expenseEditForm.memo" data-testid="edit-expense-memo" type="text" />
+          </label>
+        </div>
+        <p v-if="expenseEditError" class="dialog-error" role="alert">{{ expenseEditError }}</p>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" @click="closeExpenseEdit">취소</button>
+          <button type="button" class="primary-button" data-testid="confirm-edit-expense" @click="confirmExpenseEdit">
+            저장
+          </button>
+        </div>
+      </section>
+    </div>
   </section>
 </template>
 
@@ -166,7 +215,7 @@ import { computed, reactive, ref, watch } from 'vue';
 
 import SummaryCard from './SummaryCard.vue';
 import { categories } from '../domain/categories';
-import type { CategoryId } from '../domain/types';
+import type { CategoryId, Expense } from '../domain/types';
 import { toMonth } from '../domain/calculations';
 import { useBudgetStore } from '../stores/budgetStore';
 import { formatMoneyInput, parseMoneyInput } from '../utils/money';
@@ -184,8 +233,16 @@ const incomeAdditionDraft = ref('');
 const incomeDialogError = ref('');
 const carryOverMessage = ref('');
 const expenseAmountDraft = ref('');
+const editingExpenseId = ref<string | null>(null);
+const expenseEditError = ref('');
+const expenseEditAmountDraft = ref('');
 const expenseForm = reactive({
   date: props.initialExpenseDate ?? today,
+  categoryId: 'lunch' as CategoryId,
+  memo: ''
+});
+const expenseEditForm = reactive({
+  date: today,
   categoryId: 'lunch' as CategoryId,
   memo: ''
 });
@@ -292,6 +349,43 @@ async function submitExpense(): Promise<void> {
   incomeDraft.value = formatMoneyInput(String(store.monthSummary.income));
   expenseAmountDraft.value = '';
   expenseForm.memo = '';
+}
+
+function openExpenseEdit(expense: Expense): void {
+  editingExpenseId.value = expense.id;
+  expenseEditError.value = '';
+  expenseEditForm.date = expense.date;
+  expenseEditForm.categoryId = expense.categoryId;
+  expenseEditForm.memo = expense.memo;
+  expenseEditAmountDraft.value = formatMoneyInput(String(expense.amount));
+}
+
+function closeExpenseEdit(): void {
+  editingExpenseId.value = null;
+  expenseEditError.value = '';
+}
+
+async function confirmExpenseEdit(): Promise<void> {
+  if (!editingExpenseId.value) {
+    return;
+  }
+
+  const amount = parseMoneyInput(expenseEditAmountDraft.value);
+
+  if (amount <= 0) {
+    expenseEditError.value = '지출 금액은 0원보다 커야 합니다.';
+    return;
+  }
+
+  await store.updateExpense({
+    id: editingExpenseId.value,
+    date: expenseEditForm.date,
+    categoryId: expenseEditForm.categoryId,
+    amount,
+    memo: expenseEditForm.memo
+  });
+  store.setSelectedMonth(toMonth(expenseEditForm.date));
+  closeExpenseEdit();
 }
 
 function formatWon(amount: number): string {
