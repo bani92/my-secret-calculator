@@ -43,6 +43,15 @@ const newId = (): string => {
 
 const cloneBudgetData = (budgetData: BudgetData): BudgetData => parseBudgetJson(stringifyBudgetData(budgetData));
 const expenseSortKey = (expense: Expense): string => expense.createdAt ?? `${expense.date}T00:00:00.000Z`;
+const compareExpensesByDateAndCreatedAt = (left: Expense, right: Expense): number => {
+  const dateComparison = right.date.localeCompare(left.date);
+
+  if (dateComparison !== 0) {
+    return dateComparison;
+  }
+
+  return expenseSortKey(right).localeCompare(expenseSortKey(left));
+};
 
 const isValidExpenseDate = (date: string): boolean => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -68,7 +77,7 @@ export function createBudgetStore(repository: BudgetRepository) {
     const monthExpenses = computed(() =>
       data.value.expenses
         .filter((expense) => expense.month === selectedMonth.value)
-        .sort((left, right) => expenseSortKey(right).localeCompare(expenseSortKey(left)))
+        .sort(compareExpensesByDateAndCreatedAt)
     );
     const registeredMonths = computed(() => {
       const months = new Set<string>(Object.keys(data.value.months));

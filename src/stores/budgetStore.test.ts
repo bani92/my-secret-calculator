@@ -528,7 +528,7 @@ describe('useBudgetStore', () => {
     expect(store.data.expenses[0].date).toBe('2026-07-17');
   });
 
-  test('sorts a newly added past-date expense above an older-created expense', async () => {
+  test('sorts selected month expenses by date descending before createdAt', async () => {
     vi.setSystemTime(new Date('2026-07-17T10:00:00.000Z'));
     const repository = new MemoryBudgetRepository({
       ...createEmptyBudgetData(),
@@ -555,11 +555,11 @@ describe('useBudgetStore', () => {
       memo: '과거 날짜 신규 지출'
     });
 
-    expect(store.monthExpenses.map((expense) => expense.memo)).toEqual(['과거 날짜 신규 지출', '기존 지출']);
-    expect(store.monthExpenses[0].createdAt).toBe('2026-07-17T10:00:00.000Z');
+    expect(store.monthExpenses.map((expense) => expense.memo)).toEqual(['기존 지출', '과거 날짜 신규 지출']);
+    expect(store.monthExpenses[1].createdAt).toBe('2026-07-17T10:00:00.000Z');
   });
 
-  test('sorts selected month expenses by createdAt descending', async () => {
+  test('sorts same-date expenses by createdAt descending', async () => {
     const repository = new MemoryBudgetRepository({
       ...createEmptyBudgetData(),
       expenses: [
@@ -569,12 +569,12 @@ describe('useBudgetStore', () => {
           month: '2026-07',
           categoryId: 'lunch',
           amount: 9000,
-          memo: '늦은 날짜',
+          memo: '먼저 등록',
           createdAt: '2026-07-01T10:00:00.000Z'
         },
         {
           id: 'newer-created',
-          date: '2026-07-01',
+          date: '2026-07-17',
           month: '2026-07',
           categoryId: 'living',
           amount: 12000,
