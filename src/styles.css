@@ -559,6 +559,87 @@ select:focus-visible,
   font-size: 1.25rem;
 }
 
+.income-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.income-heading-actions,
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.income-heading-actions {
+  justify-content: flex-end;
+}
+
+.income-status,
+.dialog-error {
+  margin: calc(var(--space-3) * -1) 0 0;
+  color: var(--color-danger);
+  font-weight: 800;
+}
+
+.dialog-panel {
+  display: grid;
+  width: min(100%, 420px);
+  max-height: calc(100vh - (var(--space-4) * 2));
+  gap: var(--space-4);
+  overflow: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: 0 24px 70px rgb(15 23 42 / 0.28);
+  padding: var(--space-5);
+}
+
+.dialog-panel h3,
+.dialog-panel p {
+  margin-bottom: 0;
+}
+
+.dialog-preview {
+  color: var(--color-muted);
+  font-weight: 800;
+}
+
+.dialog-preview strong {
+  color: var(--color-text);
+}
+
+.dialog-summary-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.dialog-summary-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border-top: 1px solid var(--color-line);
+  padding-top: var(--space-2);
+}
+
+.dialog-summary-list dt {
+  color: var(--color-muted);
+  font-weight: 800;
+}
+
+.dialog-summary-list dd {
+  margin: 0;
+  font-weight: 900;
+  text-align: right;
+}
+
+.dialog-actions {
+  justify-content: flex-end;
+}
+
 label {
   display: grid;
   gap: var(--space-2);
@@ -767,6 +848,20 @@ hr {
 
   .inline-field {
     grid-template-columns: 1fr;
+  }
+
+  .income-heading-actions,
+  .dialog-actions {
+    justify-content: flex-start;
+  }
+
+  .dialog-summary-list div {
+    display: grid;
+    gap: var(--space-1);
+  }
+
+  .dialog-summary-list dd {
+    text-align: left;
   }
 
   .record-list li,

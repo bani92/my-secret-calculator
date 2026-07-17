@@ -1,9 +1,19 @@
 <template>
   <section class="workspace-grid">
     <form class="panel form-panel" @submit.prevent="submitExpense" data-testid="expense-form">
-      <div class="section-heading">
+      <div class="section-heading income-heading">
         <h2>월 수입</h2>
+        <div class="income-heading-actions">
+          <button type="button" class="secondary-button" data-testid="open-carry-over" @click="openCarryOverDialog">
+            전월 이월
+          </button>
+          <button type="button" class="secondary-button" data-testid="open-add-income" @click="openAddIncomeDialog">
+            수입 추가
+          </button>
+        </div>
       </div>
+
+      <p v-if="carryOverMessage" class="income-status" role="status">{{ carryOverMessage }}</p>
 
       <label>
         대상 월
@@ -18,7 +28,14 @@
       <div class="inline-field">
         <label>
           월 수입
-          <input :value="incomeDraft" aria-label="월 수입" type="text" inputmode="numeric" @input="updateIncome" />
+          <input
+            :value="incomeDraft"
+            aria-label="월 수입"
+            data-testid="income-input"
+            type="text"
+            inputmode="numeric"
+            @input="updateIncome"
+          />
         </label>
         <button type="button" class="secondary-button" data-testid="save-income" @click="saveIncome">저장</button>
       </div>
@@ -93,11 +110,59 @@
         </ul>
       </section>
     </section>
+
+    <div v-if="carryOverDialogOpen" class="dialog-backdrop" @click.self="carryOverDialogOpen = false">
+      <section class="dialog-panel" role="dialog" aria-modal="true" aria-label="전월 이월">
+        <h3>전월 이월</h3>
+        <p>{{ previousMonth(store.selectedMonth) }} 남은 금액을 이번 달 수입에 더합니다.</p>
+        <dl class="dialog-summary-list">
+          <div>
+            <dt>전월 남은 돈</dt>
+            <dd>{{ formatWon(carryOverAmount) }}</dd>
+          </div>
+          <div>
+            <dt>현재 월 수입</dt>
+            <dd>{{ formatWon(store.monthSummary.income) }}</dd>
+          </div>
+          <div>
+            <dt>반영 후 월 수입</dt>
+            <dd>{{ formatWon(carryOverPreview) }}</dd>
+          </div>
+        </dl>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" @click="carryOverDialogOpen = false">취소</button>
+          <button type="button" class="primary-button" @click="confirmCarryOver">이월하기</button>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="addIncomeDialogOpen" class="dialog-backdrop" @click.self="addIncomeDialogOpen = false">
+      <section class="dialog-panel" role="dialog" aria-modal="true" aria-label="수입 추가">
+        <h3>수입 추가</h3>
+        <label>
+          추가 금액
+          <input
+            :value="incomeAdditionDraft"
+            aria-label="추가 수입 금액"
+            data-testid="add-income-amount"
+            type="text"
+            inputmode="numeric"
+            @input="updateIncomeAddition"
+          />
+        </label>
+        <p class="dialog-preview">반영 후 월 수입 <strong>{{ formatWon(incomeAdditionPreview) }}</strong></p>
+        <p v-if="incomeDialogError" class="dialog-error" role="alert">{{ incomeDialogError }}</p>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" @click="addIncomeDialogOpen = false">취소</button>
+          <button type="button" class="primary-button" data-testid="confirm-add-income" @click="confirmAddIncome">추가</button>
+        </div>
+      </section>
+    </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 
 import SummaryCard from './SummaryCard.vue';
 import { categories } from '../domain/categories';
@@ -113,6 +178,11 @@ const props = defineProps<{
 const store = useBudgetStore();
 const today = new Date().toISOString().slice(0, 10);
 const incomeDraft = ref(formatMoneyInput(String(store.monthSummary.income)));
+const addIncomeDialogOpen = ref(false);
+const carryOverDialogOpen = ref(false);
+const incomeAdditionDraft = ref('');
+const incomeDialogError = ref('');
+const carryOverMessage = ref('');
 const expenseAmountDraft = ref('');
 const expenseForm = reactive({
   date: props.initialExpenseDate ?? today,
@@ -131,6 +201,18 @@ watch(
   }
 );
 
+function previousMonth(month: string): string {
+  const date = new Date(`${month}-01T00:00:00`);
+  date.setMonth(date.getMonth() - 1);
+
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+const previousMonthSummary = computed(() => store.getMonthSummary(previousMonth(store.selectedMonth)));
+const carryOverAmount = computed(() => previousMonthSummary.value.remaining);
+const carryOverPreview = computed(() => store.monthSummary.income + carryOverAmount.value);
+const incomeAdditionPreview = computed(() => store.monthSummary.income + parseMoneyInput(incomeAdditionDraft.value));
+
 watch(
   () => props.initialExpenseDate,
   (date) => {
@@ -148,8 +230,50 @@ function updateIncome(event: Event): void {
 }
 
 async function saveIncome(): Promise<void> {
-  await store.setIncome(parseMoneyInput(incomeDraft.value));
-  incomeDraft.value = '';
+  const nextIncome = parseMoneyInput(incomeDraft.value);
+
+  await store.setIncome(nextIncome);
+  incomeDraft.value = formatMoneyInput(String(nextIncome));
+}
+
+function openCarryOverDialog(): void {
+  carryOverMessage.value = '';
+
+  if (carryOverAmount.value <= 0) {
+    carryOverMessage.value = '이월한 남은 돈이 없습니다';
+    return;
+  }
+
+  carryOverDialogOpen.value = true;
+}
+
+async function confirmCarryOver(): Promise<void> {
+  await store.addIncome(carryOverAmount.value);
+  incomeDraft.value = formatMoneyInput(String(store.monthSummary.income));
+  carryOverDialogOpen.value = false;
+}
+
+function openAddIncomeDialog(): void {
+  incomeAdditionDraft.value = '';
+  incomeDialogError.value = '';
+  addIncomeDialogOpen.value = true;
+}
+
+function updateIncomeAddition(event: Event): void {
+  incomeAdditionDraft.value = formatMoneyInput((event.target as HTMLInputElement).value);
+}
+
+async function confirmAddIncome(): Promise<void> {
+  const amount = parseMoneyInput(incomeAdditionDraft.value);
+
+  if (amount <= 0) {
+    incomeDialogError.value = '추가 금액은 0원보다 커야 합니다.';
+    return;
+  }
+
+  await store.addIncome(amount);
+  incomeDraft.value = formatMoneyInput(String(store.monthSummary.income));
+  addIncomeDialogOpen.value = false;
 }
 
 function updateExpenseAmount(event: Event): void {

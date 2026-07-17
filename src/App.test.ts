@@ -273,7 +273,7 @@ describe('App', () => {
     await wrapper.get('[data-testid="save-income"]').trigger('click');
     await flushAsyncActions();
 
-    expect(incomeInput.element.value).toBe('');
+    expect(incomeInput.element.value).toBe('3,000,000');
 
     const expenseAmountInput = wrapper.get<HTMLInputElement>('[aria-label="지출 금액"]');
     await expenseAmountInput.setValue('12000');
@@ -287,6 +287,73 @@ describe('App', () => {
     expect(wrapper.text()).toContain('3,000,000원');
     expect(wrapper.text()).toContain('12,000원');
     expect(wrapper.text()).toContain('점심');
+  });
+
+  test('keeps the formatted income input after saving', async () => {
+    const wrapper = await mountLoadedApp();
+
+    await wrapper.get('[data-testid="income-input"]').setValue('2,800,000');
+    await wrapper.get('[data-testid="save-income"]').trigger('click');
+    await flushAsyncActions();
+
+    expect((wrapper.get('[data-testid="income-input"]').element as HTMLInputElement).value).toBe('2,800,000');
+  });
+
+  test('adds income from the income adjustment popup', async () => {
+    const wrapper = await mountLoadedApp();
+
+    await wrapper.get('[data-testid="income-input"]').setValue('2,800,000');
+    await wrapper.get('[data-testid="save-income"]').trigger('click');
+    await flushAsyncActions();
+
+    await wrapper.get('[data-testid="open-add-income"]').trigger('click');
+
+    expect(wrapper.text()).toContain('수입 추가');
+
+    await wrapper.get('[data-testid="add-income-amount"]').setValue('300,000');
+
+    expect(wrapper.text()).toContain('반영 후 월 수입');
+
+    await wrapper.get('[data-testid="confirm-add-income"]').trigger('click');
+    await flushAsyncActions();
+
+    expect(wrapper.text()).toContain('3,100,000원');
+  });
+
+  test('shows an empty message when there is no previous-month balance to carry over', async () => {
+    const wrapper = await mountLoadedApp();
+
+    await wrapper.get('[data-testid="open-carry-over"]').trigger('click');
+
+    expect(wrapper.text()).toContain('이월한 남은 돈이 없습니다');
+  });
+
+  test('adds the previous month remaining amount from the carry-over popup', async () => {
+    budgetData.months['2026-06'] = { month: '2026-06', income: 200000 };
+    budgetData.expenses.push({
+      id: 'previous-expense',
+      date: '2026-06-10',
+      month: '2026-06',
+      categoryId: 'lunch',
+      amount: 50000,
+      memo: '지난달 점심',
+      createdAt: '2026-06-10T00:00:00.000Z'
+    });
+    budgetData.months['2026-07'] = { month: '2026-07', income: 2800000 };
+    const wrapper = await mountLoadedApp();
+
+    await wrapper.get('[data-testid="open-carry-over"]').trigger('click');
+
+    expect(wrapper.text()).toContain('전월 남은 돈');
+    expect(wrapper.text()).toContain('150,000원');
+    expect(wrapper.text()).toContain('현재 월 수입');
+    expect(wrapper.text()).toContain('반영 후 월 수입');
+    expect(wrapper.text()).toContain('2,950,000원');
+
+    await wrapper.findAll('button').find((button) => button.text() === '이월하기')?.trigger('click');
+    await flushAsyncActions();
+
+    expect(wrapper.text()).toContain('2,950,000원');
   });
 
   test('shows monthly totals on the dashboard tab', async () => {
