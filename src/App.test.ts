@@ -66,6 +66,12 @@ function createInMemoryRepository(): BudgetRepository {
       ensureWritable();
       budgetData.expenses = budgetData.expenses.filter((expense) => expense.id !== id);
     },
+    updateExpense: async (nextExpense) => {
+      ensureWritable();
+      budgetData.expenses = budgetData.expenses.map((expense) =>
+        expense.id === nextExpense.id ? nextExpense : expense
+      );
+    },
     addPersonRecord: async (record) => {
       ensureWritable();
       budgetData.personRecords.push(record);

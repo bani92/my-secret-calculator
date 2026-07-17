@@ -55,6 +55,8 @@ export function createBudgetStore(repository: BudgetRepository) {
     const monthSummary = computed(() =>
       calculateMonthSummary(selectedMonth.value, data.value.months, data.value.expenses)
     );
+    const getMonthSummary = (month: string) =>
+      calculateMonthSummary(month, data.value.months, data.value.expenses);
     const monthExpenses = computed(() =>
       data.value.expenses
         .filter((expense) => expense.month === selectedMonth.value)
@@ -117,6 +119,16 @@ export function createBudgetStore(repository: BudgetRepository) {
       data.value.months[record.month] = record;
     };
 
+    const addIncome = async (amount: number): Promise<void> => {
+      await ensureInitialized();
+
+      if (amount <= 0) {
+        throw new Error('추가 금액은 0원보다 커야 합니다.');
+      }
+
+      await setIncome(monthSummary.value.income + amount);
+    };
+
     const addExpense = async (payload: {
       date: string;
       categoryId: CategoryId;
@@ -149,6 +161,40 @@ export function createBudgetStore(repository: BudgetRepository) {
 
       await repository.deleteExpense(id);
       data.value.expenses = nextData.expenses;
+    };
+
+    const updateExpense = async (payload: {
+      id: string;
+      date: string;
+      categoryId: CategoryId;
+      amount: number;
+      memo: string;
+    }): Promise<void> => {
+      await ensureInitialized();
+
+      if (payload.amount <= 0) {
+        throw new Error('지출 금액은 0원보다 커야 합니다.');
+      }
+
+      const existing = data.value.expenses.find((expense) => expense.id === payload.id);
+
+      if (!existing) {
+        return;
+      }
+
+      const nextExpense: Expense = {
+        ...existing,
+        date: payload.date,
+        month: toMonth(payload.date),
+        categoryId: payload.categoryId,
+        amount: payload.amount,
+        memo: payload.memo.trim()
+      };
+
+      await repository.updateExpense(nextExpense);
+      data.value.expenses = data.value.expenses.map((expense) =>
+        expense.id === nextExpense.id ? nextExpense : expense
+      );
     };
 
     const getMonthlyExpenseStats = (year: string) => calculateMonthlyExpenseStats(year, data.value.expenses);
@@ -235,8 +281,11 @@ export function createBudgetStore(repository: BudgetRepository) {
       reset,
       setSelectedMonth,
       setIncome,
+      addIncome,
       addExpense,
       deleteExpense,
+      updateExpense,
+      getMonthSummary,
       getMonthlyExpenseStats,
       addPersonRecord,
       togglePersonRecordSettled,

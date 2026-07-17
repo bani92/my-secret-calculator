@@ -11,8 +11,10 @@ class MemoryBudgetRepository implements BudgetRepository {
   savedData: BudgetData | undefined;
   loadCount = 0;
   setIncomeCount = 0;
+  setIncomeRecords: MonthRecord[] = [];
   addExpenseCount = 0;
   deleteExpenseCount = 0;
+  updateExpenseCount = 0;
   addPersonRecordCount = 0;
   setPersonRecordSettledCount = 0;
   replaceAllCount = 0;
@@ -26,6 +28,7 @@ class MemoryBudgetRepository implements BudgetRepository {
 
   async setIncome(record: MonthRecord): Promise<void> {
     this.setIncomeCount += 1;
+    this.setIncomeRecords.push(structuredClone(record));
     this.data.months[record.month] = structuredClone(record);
     this.saveSnapshot();
   }
@@ -39,6 +42,14 @@ class MemoryBudgetRepository implements BudgetRepository {
   async deleteExpense(id: string): Promise<void> {
     this.deleteExpenseCount += 1;
     this.data.expenses = this.data.expenses.filter((expense) => expense.id !== id);
+    this.saveSnapshot();
+  }
+
+  async updateExpense(nextExpense: Expense): Promise<void> {
+    this.updateExpenseCount += 1;
+    this.data.expenses = this.data.expenses.map((expense) =>
+      expense.id === nextExpense.id ? structuredClone(nextExpense) : expense
+    );
     this.saveSnapshot();
   }
 
@@ -101,6 +112,11 @@ class FailingSaveBudgetRepository extends MemoryBudgetRepository {
 
   async deleteExpense(): Promise<void> {
     this.deleteExpenseCount += 1;
+    throw new Error('save failed');
+  }
+
+  async updateExpense(): Promise<void> {
+    this.updateExpenseCount += 1;
     throw new Error('save failed');
   }
 
@@ -179,6 +195,56 @@ describe('useBudgetStore', () => {
     expect(repository.addPersonRecordCount).toBe(0);
     expect(repository.setPersonRecordSettledCount).toBe(0);
     expect(repository.replaceAllCount).toBe(0);
+  });
+
+  test('adds an amount to the current month income', async () => {
+    const repository = new MemoryBudgetRepository({
+      ...createEmptyBudgetData(),
+      months: { '2026-07': { month: '2026-07', income: 2800000 } }
+    });
+    const { store } = createBudgetStoreForTest(repository);
+
+    await store.initialize();
+    store.setSelectedMonth('2026-07');
+    await store.addIncome(300000);
+
+    expect(store.monthSummary.income).toBe(3100000);
+    expect(repository.setIncomeRecords.at(-1)).toEqual({ month: '2026-07', income: 3100000 });
+  });
+
+  test('rejects non-positive income additions without saving', async () => {
+    const repository = new MemoryBudgetRepository(createEmptyBudgetData());
+    const { store } = createBudgetStoreForTest(repository);
+
+    await store.initialize();
+    await expect(store.addIncome(0)).rejects.toThrow('추가 금액은 0원보다 커야 합니다.');
+
+    expect(repository.setIncomeRecords).toEqual([]);
+  });
+
+  test('returns a summary for an arbitrary month', async () => {
+    const repository = new MemoryBudgetRepository({
+      ...createEmptyBudgetData(),
+      months: {
+        '2026-06': { month: '2026-06', income: 100000 }
+      },
+      expenses: [
+        {
+          id: 'expense-id',
+          date: '2026-06-05',
+          month: '2026-06',
+          categoryId: 'lunch',
+          amount: 40000,
+          memo: '',
+          createdAt: '2026-06-05T00:00:00.000Z'
+        }
+      ]
+    });
+    const { store } = createBudgetStoreForTest(repository);
+
+    await store.initialize();
+
+    expect(store.getMonthSummary('2026-06').remaining).toBe(60000);
   });
 
   test('mutation actions wait for initialization before saving', async () => {
@@ -359,6 +425,43 @@ describe('useBudgetStore', () => {
 
     expect(repository.addExpenseCount).toBe(0);
     expect(store.data.expenses).toEqual([]);
+  });
+
+  test('updates an expense and recalculates its month from date', async () => {
+    const repository = new MemoryBudgetRepository({
+      ...createEmptyBudgetData(),
+      expenses: [
+        {
+          id: 'expense-id',
+          date: '2026-07-17',
+          month: '2026-07',
+          categoryId: 'lunch',
+          amount: 9000,
+          memo: '점심',
+          createdAt: '2026-07-17T10:00:00.000Z'
+        }
+      ]
+    });
+    const { store } = createBudgetStoreForTest(repository);
+
+    await store.initialize();
+    await store.updateExpense({
+      id: 'expense-id',
+      date: '2026-08-01',
+      categoryId: 'living',
+      amount: 15000,
+      memo: '수정'
+    });
+
+    expect(store.data.expenses[0]).toMatchObject({
+      id: 'expense-id',
+      date: '2026-08-01',
+      month: '2026-08',
+      categoryId: 'living',
+      amount: 15000,
+      memo: '수정',
+      createdAt: '2026-07-17T10:00:00.000Z'
+    });
   });
 
   test('sorts selected month expenses by createdAt descending', async () => {

@@ -92,6 +92,26 @@ describe('IndexedDbBudgetRepository', () => {
     });
   });
 
+  test('updates an existing expense while preserving its created time', async () => {
+    await repository.replaceAll(sampleBudgetData);
+    const expense = {
+      ...sampleBudgetData.expenses[0],
+      date: '2026-07-01',
+      month: '2026-07',
+      categoryId: 'living' as const,
+      amount: 15_000,
+      memo: '수정',
+      createdAt: '2026-06-27T10:00:00.000Z'
+    };
+
+    await repository.updateExpense(expense);
+
+    await expect(repository.load()).resolves.toEqual({
+      ...sampleBudgetData,
+      expenses: [expense]
+    });
+  });
+
   test('load falls back to empty data when stored data is unsupported', async () => {
     recordStore.setRaw('current', { version: 2 });
 

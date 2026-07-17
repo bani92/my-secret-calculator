@@ -185,6 +185,32 @@ describe('SupabaseBudgetRepository', () => {
     expect(query.eq).toHaveBeenCalledWith('id', expense.id);
   });
 
+  test('updates an expense with mutable snake_case columns', async () => {
+    const fake = createClient([success()]);
+    const repository = new SupabaseBudgetRepository(() => fake.client);
+    const updatedExpense = {
+      ...expense,
+      date: '2026-08-01',
+      month: '2026-08',
+      categoryId: 'living' as const,
+      amount: 15_000,
+      memo: '수정',
+      createdAt: '2026-07-11T03:04:05.000Z'
+    };
+
+    await repository.updateExpense(updatedExpense);
+
+    const query = fake.queriesFor('expenses')[0];
+    expect(query.update).toHaveBeenCalledWith({
+      date: updatedExpense.date,
+      month: updatedExpense.month,
+      category_id: updatedExpense.categoryId,
+      amount: updatedExpense.amount,
+      memo: updatedExpense.memo
+    });
+    expect(query.eq).toHaveBeenCalledWith('id', updatedExpense.id);
+  });
+
   test('inserts a person-money record with snake_case columns', async () => {
     const fake = createClient([success()]);
     const repository = new SupabaseBudgetRepository(() => fake.client);
@@ -255,6 +281,7 @@ describe('SupabaseBudgetRepository', () => {
     ['set income', (repository: SupabaseBudgetRepository) => repository.setIncome(month), [failure()]],
     ['add expense', (repository: SupabaseBudgetRepository) => repository.addExpense(expense), [failure()]],
     ['delete expense', (repository: SupabaseBudgetRepository) => repository.deleteExpense(expense.id), [failure()]],
+    ['update expense', (repository: SupabaseBudgetRepository) => repository.updateExpense(expense), [failure()]],
     ['add person-money record', (repository: SupabaseBudgetRepository) => repository.addPersonRecord(personRecord), [failure()]],
     ['set person-money record settled', (repository: SupabaseBudgetRepository) => repository.setPersonRecordSettled(personRecord.id, true), [failure()]]
   ])('returns the generic error when %s fails', async (_label, operation, queryResults) => {

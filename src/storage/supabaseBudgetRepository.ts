@@ -175,6 +175,21 @@ export class SupabaseBudgetRepository implements BudgetRepository {
     ensureSuccess(response);
   }
 
+  async updateExpense(expense: Expense): Promise<void> {
+    const response = await this.client()
+      .from('expenses')
+      .update({
+        date: expense.date,
+        month: expense.month,
+        category_id: expense.categoryId,
+        amount: expense.amount,
+        memo: expense.memo
+      })
+      .eq('id', expense.id);
+
+    ensureSuccess(response);
+  }
+
   async addPersonRecord(record: PersonMoneyRecord): Promise<void> {
     const response = await this.client()
       .from('person_money_records')

@@ -51,6 +51,13 @@ export class IndexedDbBudgetRepository implements BudgetRepository {
     await this.write(data);
   }
 
+  async updateExpense(nextExpense: Expense): Promise<void> {
+    const data = await this.load();
+
+    data.expenses = data.expenses.map((expense) => (expense.id === nextExpense.id ? nextExpense : expense));
+    await this.write(data);
+  }
+
   async addPersonRecord(record: PersonMoneyRecord): Promise<void> {
     const data = await this.load();
 
