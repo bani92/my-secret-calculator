@@ -372,6 +372,11 @@ async function confirmExpenseEdit(): Promise<void> {
 
   const amount = parseMoneyInput(expenseEditAmountDraft.value);
 
+  if (!expenseEditForm.date) {
+    expenseEditError.value = '지출 날짜를 입력해주세요.';
+    return;
+  }
+
   if (amount <= 0) {
     expenseEditError.value = '지출 금액은 0원보다 커야 합니다.';
     return;

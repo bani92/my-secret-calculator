@@ -343,6 +343,25 @@ describe('App', () => {
     expect(wrapper.text()).toContain('지출 금액은 0원보다 커야 합니다.');
   });
 
+  test('shows an error instead of saving an edited expense without a date', async () => {
+    budgetData.expenses.push({
+      id: 'expense-id',
+      date: '2026-07-10',
+      month: '2026-07',
+      categoryId: 'lunch',
+      amount: 12_000,
+      memo: '기존 메모'
+    });
+    const wrapper = await mountLoadedApp();
+
+    await wrapper.get('[data-testid="edit-expense-expense-id"]').trigger('click');
+    await wrapper.get('[data-testid="edit-expense-date"]').setValue('');
+    await wrapper.get('[data-testid="confirm-edit-expense"]').trigger('click');
+
+    expect(wrapper.text()).toContain('지출 날짜를 입력해주세요.');
+    expect(mockedStores.budgetStore.data.expenses[0].date).toBe('2026-07-10');
+  });
+
   test('keeps the formatted income input after saving', async () => {
     const wrapper = await mountLoadedApp();
 

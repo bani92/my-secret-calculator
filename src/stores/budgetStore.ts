@@ -44,6 +44,14 @@ const newId = (): string => {
 const cloneBudgetData = (budgetData: BudgetData): BudgetData => parseBudgetJson(stringifyBudgetData(budgetData));
 const expenseSortKey = (expense: Expense): string => expense.createdAt ?? `${expense.date}T00:00:00.000Z`;
 
+const isValidExpenseDate = (date: string): boolean => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return false;
+  }
+
+  return new Date(`${date}T00:00:00.000Z`).toISOString().slice(0, 10) === date;
+};
+
 export function createBudgetStore(repository: BudgetRepository) {
   return defineStore('budget', () => {
     const selectedMonth = ref(getCurrentMonth());
@@ -139,6 +147,7 @@ export function createBudgetStore(repository: BudgetRepository) {
       const nextData = cloneBudgetData(data.value);
       const nextExpense = {
         id: newId(),
+        createdAt: new Date().toISOString(),
         date: payload.date,
         month: toMonth(payload.date),
         categoryId: payload.categoryId,
@@ -171,6 +180,10 @@ export function createBudgetStore(repository: BudgetRepository) {
       memo: string;
     }): Promise<void> => {
       await ensureInitialized();
+
+      if (!isValidExpenseDate(payload.date)) {
+        throw new Error('지출 날짜를 입력해주세요.');
+      }
 
       if (!Number.isFinite(payload.amount) || payload.amount <= 0) {
         throw new Error('지출 금액은 0원보다 커야 합니다.');

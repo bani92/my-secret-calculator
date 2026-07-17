@@ -347,14 +347,14 @@ describe('useBudgetStore', () => {
     });
 
     expect(store.monthExpenses).toEqual([
-      {
+      expect.objectContaining({
         id: '00000000-0000-4000-8000-000000000001',
         date: '2026-06-27',
         month: '2026-06',
         categoryId: 'lunch',
         amount: 12_000,
         memo: 'lunch'
-      }
+      })
     ]);
     expect(store.monthSummary.expenseTotal).toBe(12_000);
     expect(store.monthSummary.categoryTotals).toEqual({ lunch: 12_000 });
@@ -494,6 +494,69 @@ describe('useBudgetStore', () => {
 
     expect(repository.updateExpenseCount).toBe(0);
     expect(store.data.expenses[0].amount).toBe(9000);
+  });
+
+  test('rejects empty expense update dates without saving', async () => {
+    const repository = new MemoryBudgetRepository({
+      ...createEmptyBudgetData(),
+      expenses: [
+        {
+          id: 'expense-id',
+          date: '2026-07-17',
+          month: '2026-07',
+          categoryId: 'lunch',
+          amount: 9000,
+          memo: '점심'
+        }
+      ]
+    });
+    const { store } = createBudgetStoreForTest(repository);
+
+    await store.initialize();
+
+    await expect(
+      store.updateExpense({
+        id: 'expense-id',
+        date: '',
+        categoryId: 'lunch',
+        amount: 9000,
+        memo: '수정'
+      })
+    ).rejects.toThrow('지출 날짜를 입력해주세요.');
+
+    expect(repository.updateExpenseCount).toBe(0);
+    expect(store.data.expenses[0].date).toBe('2026-07-17');
+  });
+
+  test('sorts a newly added past-date expense above an older-created expense', async () => {
+    vi.setSystemTime(new Date('2026-07-17T10:00:00.000Z'));
+    const repository = new MemoryBudgetRepository({
+      ...createEmptyBudgetData(),
+      expenses: [
+        {
+          id: 'older-created',
+          date: '2026-07-16',
+          month: '2026-07',
+          categoryId: 'lunch',
+          amount: 9000,
+          memo: '기존 지출',
+          createdAt: '2026-07-01T10:00:00.000Z'
+        }
+      ]
+    });
+    const { store } = createBudgetStoreForTest(repository);
+
+    await store.initialize();
+    store.setSelectedMonth('2026-07');
+    await store.addExpense({
+      date: '2026-07-01',
+      categoryId: 'living',
+      amount: 12_000,
+      memo: '과거 날짜 신규 지출'
+    });
+
+    expect(store.monthExpenses.map((expense) => expense.memo)).toEqual(['과거 날짜 신규 지출', '기존 지출']);
+    expect(store.monthExpenses[0].createdAt).toBe('2026-07-17T10:00:00.000Z');
   });
 
   test('sorts selected month expenses by createdAt descending', async () => {

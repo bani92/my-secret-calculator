@@ -20,7 +20,8 @@ const expense: Expense = {
   month: '2026-07',
   categoryId: 'lunch',
   amount: 12_000,
-  memo: '점심'
+  memo: '점심',
+  createdAt: '2026-07-11T03:04:05.000Z'
 };
 
 const personRecord: PersonMoneyRecord = {
@@ -170,7 +171,8 @@ describe('SupabaseBudgetRepository', () => {
       month: expense.month,
       category_id: expense.categoryId,
       amount: expense.amount,
-      memo: expense.memo
+      memo: expense.memo,
+      created_at: expense.createdAt
     });
   });
 
@@ -255,7 +257,8 @@ describe('SupabaseBudgetRepository', () => {
           month: expense.month,
           category_id: expense.categoryId,
           amount: expense.amount,
-          memo: expense.memo
+          memo: expense.memo,
+          created_at: expense.createdAt
         }
       ],
       p_person_records: [

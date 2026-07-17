@@ -107,7 +107,7 @@ begin
     (item.value ->> 'income')::integer
   from pg_catalog.jsonb_array_elements(p_months) as item(value);
 
-  insert into public.expenses (id, user_id, date, month, category_id, amount, memo)
+  insert into public.expenses (id, user_id, date, month, category_id, amount, memo, created_at)
   select
     (item.value ->> 'id')::uuid,
     v_user_id,
@@ -115,7 +115,8 @@ begin
     item.value ->> 'month',
     item.value ->> 'category_id',
     (item.value ->> 'amount')::integer,
-    item.value ->> 'memo'
+    item.value ->> 'memo',
+    coalesce((item.value ->> 'created_at')::timestamptz, now())
   from pg_catalog.jsonb_array_elements(p_expenses) as item(value);
 
   insert into public.person_money_records (
