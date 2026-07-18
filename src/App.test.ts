@@ -386,7 +386,34 @@ describe('App', () => {
     expect((wrapper.get('[data-testid="income-input"]').element as HTMLInputElement).value).toBe('2,800,000');
   });
 
-  test('adds income from the income adjustment popup', async () => {
+  test('shows grouped ledger entries with signed income and expense amounts', async () => {
+    budgetData.expenses.push({
+      id: 'expense-id',
+      date: '2026-07-16',
+      month: '2026-07',
+      categoryId: 'lunch',
+      amount: 22_000,
+      memo: '점심',
+      createdAt: '2026-07-16T01:00:00.000Z'
+    });
+    budgetData.incomeRecords.push({
+      id: 'income-id',
+      date: '2026-07-16',
+      month: '2026-07',
+      categoryId: 'refund',
+      amount: 100_000,
+      memo: '환급',
+      createdAt: '2026-07-16T02:00:00.000Z'
+    });
+    const wrapper = await mountLoadedApp();
+
+    expect(wrapper.text()).toContain('거래 내역');
+    expect(wrapper.text()).toContain('+100,000원');
+    expect(wrapper.text()).toContain('-22,000원');
+    expect(wrapper.text()).toContain('16일');
+  });
+
+  test('adds itemized income from the income popup without changing the base income input', async () => {
     const wrapper = await mountLoadedApp();
 
     await wrapper.get('[data-testid="income-input"]').setValue('2,800,000');
@@ -397,14 +424,26 @@ describe('App', () => {
 
     expect(wrapper.text()).toContain('수입 추가');
 
+    await wrapper.get('[data-testid="add-income-date"]').setValue('2026-07-16');
+    await wrapper.get('[data-testid="add-income-category"]').setValue('refund');
     await wrapper.get('[data-testid="add-income-amount"]').setValue('300,000');
-
-    expect(wrapper.text()).toContain('반영 후 월 수입');
+    await wrapper.get('[data-testid="add-income-memo"]').setValue('환급');
 
     await wrapper.get('[data-testid="confirm-add-income"]').trigger('click');
     await flushAsyncActions();
 
+    expect((wrapper.get('[data-testid="income-input"]').element as HTMLInputElement).value).toBe('2,800,000');
     expect(wrapper.text()).toContain('3,100,000원');
+    expect(wrapper.text()).toContain('+300,000원');
+    expect(wrapper.text()).toContain('환급');
+    expect(mockedStores.budgetStore.data.months['2026-07'].income).toBe(2_800_000);
+    expect(mockedStores.budgetStore.data.incomeRecords[0]).toMatchObject({
+      date: '2026-07-16',
+      month: '2026-07',
+      categoryId: 'refund',
+      amount: 300_000,
+      memo: '환급'
+    });
   });
 
   test('shows an empty message when there is no previous-month balance to carry over', async () => {
@@ -415,7 +454,7 @@ describe('App', () => {
     expect(wrapper.text()).toContain('이월한 남은 돈이 없습니다');
   });
 
-  test('adds the previous month remaining amount from the carry-over popup', async () => {
+  test('adds the previous month remaining amount as a carry-over income record', async () => {
     budgetData.months['2026-06'] = { month: '2026-06', income: 200000 };
     budgetData.expenses.push({
       id: 'previous-expense',
@@ -441,6 +480,57 @@ describe('App', () => {
     await flushAsyncActions();
 
     expect(wrapper.text()).toContain('2,950,000원');
+    expect(wrapper.text()).toContain('2026-06 잔액 이월');
+    expect(wrapper.text()).toContain('+150,000원');
+    expect(mockedStores.budgetStore.data.months['2026-07'].income).toBe(2_800_000);
+    expect(mockedStores.budgetStore.data.incomeRecords[0]).toMatchObject({
+      date: '2026-07-01',
+      month: '2026-07',
+      categoryId: 'carryOver',
+      amount: 150_000,
+      memo: '2026-06 잔액 이월'
+    });
+  });
+
+  test('edits and deletes an income record from the ledger', async () => {
+    budgetData.incomeRecords.push({
+      id: 'income-id',
+      date: '2026-07-16',
+      month: '2026-07',
+      categoryId: 'refund',
+      amount: 100_000,
+      memo: '환급',
+      createdAt: '2026-07-16T02:00:00.000Z'
+    });
+    const wrapper = await mountLoadedApp();
+
+    expect((wrapper.get('[data-testid="income-input"]').element as HTMLInputElement).value).toBe('0');
+
+    await wrapper.get('[data-testid="edit-income-income-id"]').trigger('click');
+    expect(wrapper.text()).toContain('수입 수정');
+    await wrapper.get('[data-testid="edit-income-date"]').setValue('2026-07-17');
+    await wrapper.get('[data-testid="edit-income-category"]').setValue('side');
+    await wrapper.get('[data-testid="edit-income-amount"]').setValue('120,000');
+    await wrapper.get('[data-testid="edit-income-memo"]').setValue('부업');
+    await wrapper.get('[data-testid="confirm-edit-income"]').trigger('click');
+    await flushAsyncActions();
+
+    expect(wrapper.text()).toContain('부업');
+    expect(wrapper.text()).toContain('+120,000원');
+    expect(mockedStores.budgetStore.data.incomeRecords[0]).toMatchObject({
+      id: 'income-id',
+      date: '2026-07-17',
+      month: '2026-07',
+      categoryId: 'side',
+      amount: 120_000,
+      memo: '부업'
+    });
+
+    await wrapper.get('[aria-label="수입 삭제"]').trigger('click');
+    await flushAsyncActions();
+
+    expect(wrapper.text()).not.toContain('부업');
+    expect(mockedStores.budgetStore.data.incomeRecords).toEqual([]);
   });
 
   test('shows monthly totals on the dashboard tab', async () => {

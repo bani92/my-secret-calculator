@@ -90,32 +90,67 @@
       <section class="panel">
         <div class="section-heading compact">
           <span>{{ store.selectedMonth }}</span>
-          <h2>최근 지출</h2>
+          <h2>거래 내역</h2>
         </div>
 
-        <p v-if="store.monthExpenses.length === 0" class="empty-copy">이번 달 첫 지출을 기록해보세요.</p>
-        <ul v-else class="record-list">
-          <li v-for="expense in store.monthExpenses" :key="expense.id">
-            <div>
-              <strong>{{ expense.memo || categoryLabel(expense.categoryId) }}</strong>
-              <span>{{ expense.date }} · {{ categoryLabel(expense.categoryId) }}</span>
-            </div>
-            <div class="record-actions">
-              <strong>{{ formatWon(expense.amount) }}</strong>
-              <button
-                type="button"
-                class="icon-button"
-                :data-testid="`edit-expense-${expense.id}`"
-                @click="openExpenseEdit(expense)"
-              >
-                수정
-              </button>
-              <button type="button" class="icon-button danger" aria-label="지출 삭제" @click="store.deleteExpense(expense.id)">
-                삭제
-              </button>
-            </div>
-          </li>
-        </ul>
+        <p v-if="store.ledgerGroups.length === 0" class="empty-copy">이번 달 첫 거래를 기록해보세요.</p>
+        <div v-else class="ledger-day-list">
+          <section v-for="group in store.ledgerGroups" :key="group.date" class="ledger-day-group">
+            <header class="ledger-day-header">
+              <span>{{ formatLedgerDate(group.date) }}</span>
+              <strong>{{ formatSignedWon(group.total) }}</strong>
+            </header>
+            <ul class="ledger-entry-list">
+              <li v-for="entry in group.entries" :key="`${entry.kind}-${entry.id}`" class="ledger-entry">
+                <div class="ledger-entry-main">
+                  <strong>{{ entry.memo || ledgerCategoryLabel(entry) }}</strong>
+                  <span>{{ entry.date }} · {{ ledgerCategoryLabel(entry) }}</span>
+                </div>
+                <div class="ledger-entry-side">
+                  <strong :class="['ledger-entry-amount', entry.kind]">{{ formatSignedWon(entry.signedAmount) }}</strong>
+                  <div class="ledger-entry-actions">
+                    <button
+                      v-if="entry.kind === 'expense'"
+                      type="button"
+                      class="icon-button"
+                      :data-testid="`edit-expense-${entry.id}`"
+                      @click="openExpenseEdit(entry.record)"
+                    >
+                      수정
+                    </button>
+                    <button
+                      v-else
+                      type="button"
+                      class="icon-button"
+                      :data-testid="`edit-income-${entry.id}`"
+                      @click="openIncomeEdit(entry.record)"
+                    >
+                      수정
+                    </button>
+                    <button
+                      v-if="entry.kind === 'expense'"
+                      type="button"
+                      class="icon-button danger"
+                      aria-label="지출 삭제"
+                      @click="store.deleteExpense(entry.id)"
+                    >
+                      삭제
+                    </button>
+                    <button
+                      v-else
+                      type="button"
+                      class="icon-button danger"
+                      aria-label="수입 삭제"
+                      @click="store.deleteIncomeRecord(entry.id)"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </section>
+        </div>
       </section>
     </section>
 
@@ -147,22 +182,80 @@
     <div v-if="addIncomeDialogOpen" class="dialog-backdrop" @click.self="addIncomeDialogOpen = false">
       <section class="dialog-panel" role="dialog" aria-modal="true" aria-label="수입 추가">
         <h3>수입 추가</h3>
-        <label>
-          추가 금액
-          <input
-            :value="incomeAdditionDraft"
-            aria-label="추가 수입 금액"
-            data-testid="add-income-amount"
-            type="text"
-            inputmode="numeric"
-            @input="updateIncomeAddition"
-          />
-        </label>
-        <p class="dialog-preview">반영 후 월 수입 <strong>{{ formatWon(incomeAdditionPreview) }}</strong></p>
+        <div class="dialog-form-grid">
+          <label>
+            날짜
+            <input v-model="incomeForm.date" data-testid="add-income-date" type="date" required />
+          </label>
+          <label>
+            분류
+            <select v-model="incomeForm.categoryId" data-testid="add-income-category">
+              <option v-for="category in incomeCategories" :key="category.id" :value="category.id">
+                {{ category.label }}
+              </option>
+            </select>
+          </label>
+          <label>
+            금액
+            <input
+              :value="incomeAdditionDraft"
+              aria-label="추가 수입 금액"
+              data-testid="add-income-amount"
+              type="text"
+              inputmode="numeric"
+              @input="updateIncomeAddition"
+            />
+          </label>
+          <label class="wide">
+            메모
+            <input v-model="incomeForm.memo" data-testid="add-income-memo" type="text" />
+          </label>
+        </div>
         <p v-if="incomeDialogError" class="dialog-error" role="alert">{{ incomeDialogError }}</p>
         <div class="dialog-actions">
           <button type="button" class="secondary-button" @click="addIncomeDialogOpen = false">취소</button>
           <button type="button" class="primary-button" data-testid="confirm-add-income" @click="confirmAddIncome">추가</button>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="editingIncomeId" class="dialog-backdrop" @click.self="closeIncomeEdit">
+      <section class="dialog-panel" role="dialog" aria-modal="true" aria-label="수입 수정">
+        <h3>수입 수정</h3>
+        <div class="dialog-form-grid">
+          <label>
+            날짜
+            <input v-model="incomeEditForm.date" data-testid="edit-income-date" type="date" required />
+          </label>
+          <label>
+            분류
+            <select v-model="incomeEditForm.categoryId" data-testid="edit-income-category">
+              <option v-for="category in incomeCategories" :key="category.id" :value="category.id">
+                {{ category.label }}
+              </option>
+            </select>
+          </label>
+          <label>
+            금액
+            <input
+              :value="incomeEditAmountDraft"
+              data-testid="edit-income-amount"
+              type="text"
+              inputmode="numeric"
+              @input="incomeEditAmountDraft = formatMoneyInput(($event.target as HTMLInputElement).value)"
+            />
+          </label>
+          <label class="wide">
+            메모
+            <input v-model="incomeEditForm.memo" data-testid="edit-income-memo" type="text" />
+          </label>
+        </div>
+        <p v-if="incomeEditError" class="dialog-error" role="alert">{{ incomeEditError }}</p>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" @click="closeIncomeEdit">취소</button>
+          <button type="button" class="primary-button" data-testid="confirm-edit-income" @click="confirmIncomeEdit">
+            저장
+          </button>
         </div>
       </section>
     </div>
@@ -214,8 +307,9 @@
 import { computed, reactive, ref, watch } from 'vue';
 
 import SummaryCard from './SummaryCard.vue';
-import { categories } from '../domain/categories';
-import type { CategoryId, Expense } from '../domain/types';
+import { categories, incomeCategories } from '../domain/categories';
+import type { CategoryId, Expense, IncomeCategoryId, IncomeRecord } from '../domain/types';
+import type { LedgerEntry } from '../domain/calculations';
 import { toMonth } from '../domain/calculations';
 import { useBudgetStore } from '../stores/budgetStore';
 import { formatMoneyInput, parseMoneyInput } from '../utils/money';
@@ -226,19 +320,33 @@ const props = defineProps<{
 
 const store = useBudgetStore();
 const today = new Date().toISOString().slice(0, 10);
-const incomeDraft = ref(formatMoneyInput(String(store.monthSummary.income)));
+const baseIncome = computed(() => store.data.months[store.selectedMonth]?.income ?? 0);
+const incomeDraft = ref(formatMoneyInput(String(baseIncome.value)));
 const addIncomeDialogOpen = ref(false);
 const carryOverDialogOpen = ref(false);
 const incomeAdditionDraft = ref('');
 const incomeDialogError = ref('');
 const carryOverMessage = ref('');
 const expenseAmountDraft = ref('');
+const editingIncomeId = ref<string | null>(null);
+const incomeEditError = ref('');
+const incomeEditAmountDraft = ref('');
 const editingExpenseId = ref<string | null>(null);
 const expenseEditError = ref('');
 const expenseEditAmountDraft = ref('');
+const incomeForm = reactive({
+  date: `${store.selectedMonth}-01`,
+  categoryId: 'other' as IncomeCategoryId,
+  memo: ''
+});
 const expenseForm = reactive({
   date: props.initialExpenseDate ?? today,
   categoryId: 'lunch' as CategoryId,
+  memo: ''
+});
+const incomeEditForm = reactive({
+  date: today,
+  categoryId: 'other' as IncomeCategoryId,
   memo: ''
 });
 const expenseEditForm = reactive({
@@ -254,7 +362,8 @@ if (props.initialExpenseDate) {
 watch(
   () => store.selectedMonth,
   () => {
-    incomeDraft.value = formatMoneyInput(String(store.monthSummary.income));
+    incomeDraft.value = formatMoneyInput(String(baseIncome.value));
+    incomeForm.date = `${store.selectedMonth}-01`;
   }
 );
 
@@ -268,7 +377,6 @@ function previousMonth(month: string): string {
 const previousMonthSummary = computed(() => store.getMonthSummary(previousMonth(store.selectedMonth)));
 const carryOverAmount = computed(() => previousMonthSummary.value.remaining);
 const carryOverPreview = computed(() => store.monthSummary.income + carryOverAmount.value);
-const incomeAdditionPreview = computed(() => store.monthSummary.income + parseMoneyInput(incomeAdditionDraft.value));
 
 watch(
   () => props.initialExpenseDate,
@@ -305,14 +413,21 @@ function openCarryOverDialog(): void {
 }
 
 async function confirmCarryOver(): Promise<void> {
-  await store.addIncome(carryOverAmount.value);
-  incomeDraft.value = formatMoneyInput(String(store.monthSummary.income));
+  await store.addIncomeRecord({
+    date: `${store.selectedMonth}-01`,
+    categoryId: 'carryOver',
+    amount: carryOverAmount.value,
+    memo: `${previousMonth(store.selectedMonth)} 잔액 이월`
+  });
   carryOverDialogOpen.value = false;
 }
 
 function openAddIncomeDialog(): void {
   incomeAdditionDraft.value = '';
   incomeDialogError.value = '';
+  incomeForm.date = `${store.selectedMonth}-01`;
+  incomeForm.categoryId = 'other';
+  incomeForm.memo = '';
   addIncomeDialogOpen.value = true;
 }
 
@@ -323,13 +438,23 @@ function updateIncomeAddition(event: Event): void {
 async function confirmAddIncome(): Promise<void> {
   const amount = parseMoneyInput(incomeAdditionDraft.value);
 
-  if (amount <= 0) {
-    incomeDialogError.value = '추가 금액은 0원보다 커야 합니다.';
+  if (!incomeForm.date) {
+    incomeDialogError.value = '수입 날짜를 입력해주세요.';
     return;
   }
 
-  await store.addIncome(amount);
-  incomeDraft.value = formatMoneyInput(String(store.monthSummary.income));
+  if (amount <= 0) {
+    incomeDialogError.value = '수입 금액은 0원보다 커야 합니다.';
+    return;
+  }
+
+  await store.addIncomeRecord({
+    date: incomeForm.date,
+    categoryId: incomeForm.categoryId,
+    amount,
+    memo: incomeForm.memo
+  });
+  store.setSelectedMonth(toMonth(incomeForm.date));
   addIncomeDialogOpen.value = false;
 }
 
@@ -346,9 +471,51 @@ async function submitExpense(): Promise<void> {
 
   await store.addExpense({ ...expenseForm, amount });
   store.setSelectedMonth(toMonth(expenseForm.date));
-  incomeDraft.value = formatMoneyInput(String(store.monthSummary.income));
+  incomeDraft.value = formatMoneyInput(String(baseIncome.value));
   expenseAmountDraft.value = '';
   expenseForm.memo = '';
+}
+
+function openIncomeEdit(record: IncomeRecord): void {
+  editingIncomeId.value = record.id;
+  incomeEditError.value = '';
+  incomeEditForm.date = record.date;
+  incomeEditForm.categoryId = record.categoryId;
+  incomeEditForm.memo = record.memo;
+  incomeEditAmountDraft.value = formatMoneyInput(String(record.amount));
+}
+
+function closeIncomeEdit(): void {
+  editingIncomeId.value = null;
+  incomeEditError.value = '';
+}
+
+async function confirmIncomeEdit(): Promise<void> {
+  if (!editingIncomeId.value) {
+    return;
+  }
+
+  const amount = parseMoneyInput(incomeEditAmountDraft.value);
+
+  if (!incomeEditForm.date) {
+    incomeEditError.value = '수입 날짜를 입력해주세요.';
+    return;
+  }
+
+  if (amount <= 0) {
+    incomeEditError.value = '수입 금액은 0원보다 커야 합니다.';
+    return;
+  }
+
+  await store.updateIncomeRecord({
+    id: editingIncomeId.value,
+    date: incomeEditForm.date,
+    categoryId: incomeEditForm.categoryId,
+    amount,
+    memo: incomeEditForm.memo
+  });
+  store.setSelectedMonth(toMonth(incomeEditForm.date));
+  closeIncomeEdit();
 }
 
 function openExpenseEdit(expense: Expense): void {
@@ -397,7 +564,31 @@ function formatWon(amount: number): string {
   return `${amount.toLocaleString('ko-KR')}원`;
 }
 
+function formatSignedWon(amount: number): string {
+  if (amount > 0) {
+    return `+${formatWon(amount)}`;
+  }
+
+  if (amount < 0) {
+    return `-${formatWon(Math.abs(amount))}`;
+  }
+
+  return formatWon(0);
+}
+
+function formatLedgerDate(date: string): string {
+  return `${Number(date.slice(8, 10))}일`;
+}
+
 function categoryLabel(id: CategoryId): string {
   return categories.find((category) => category.id === id)?.label ?? id;
+}
+
+function incomeCategoryLabel(id: IncomeCategoryId): string {
+  return incomeCategories.find((category) => category.id === id)?.label ?? id;
+}
+
+function ledgerCategoryLabel(entry: LedgerEntry): string {
+  return entry.kind === 'income' ? incomeCategoryLabel(entry.categoryId) : categoryLabel(entry.categoryId);
 }
 </script>
