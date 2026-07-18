@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { categories } from './categories';
 import {
+  calculateLedgerGroups,
   calculateMonthlyExpenseStats,
   calculateMonthSummary,
   calculatePersonBalances,
@@ -9,7 +10,7 @@ import {
   getCurrentMonth,
   toMonth
 } from './calculations';
-import type { BudgetData, CategoryId, Expense, MonthRecord, PersonMoneyRecord } from './types';
+import type { BudgetData, CategoryId, Expense, IncomeRecord, MonthRecord, PersonMoneyRecord } from './types';
 
 describe('budget domain model', () => {
   it('defines the required Korean category labels in order', () => {
@@ -111,6 +112,78 @@ describe('budget domain model', () => {
 
     expect(summary.income).toBe(2900000);
     expect(summary.remaining).toBe(2900000);
+  });
+
+  it('groups income and expenses by date with signed daily totals', () => {
+    const expenses: Expense[] = [
+      {
+        id: 'expense-1',
+        date: '2026-07-16',
+        month: '2026-07',
+        categoryId: 'lunch',
+        amount: 22_000,
+        memo: '점심',
+        createdAt: '2026-07-16T01:00:00.000Z'
+      },
+      {
+        id: 'expense-2',
+        date: '2026-07-17',
+        month: '2026-07',
+        categoryId: 'transport',
+        amount: 5_000,
+        memo: '버스'
+      },
+      {
+        id: 'expense-other-month',
+        date: '2026-08-01',
+        month: '2026-08',
+        categoryId: 'living',
+        amount: 30_000,
+        memo: ''
+      }
+    ];
+    const incomeRecords: IncomeRecord[] = [
+      {
+        id: 'income-1',
+        date: '2026-07-16',
+        month: '2026-07',
+        categoryId: 'refund',
+        amount: 100_000,
+        memo: '환급',
+        createdAt: '2026-07-16T02:00:00.000Z'
+      }
+    ];
+
+    expect(calculateLedgerGroups('2026-07', expenses, incomeRecords)).toEqual([
+      {
+        date: '2026-07-17',
+        total: -5_000,
+        entries: [
+          expect.objectContaining({
+            id: 'expense-2',
+            kind: 'expense',
+            signedAmount: -5_000,
+            createdAt: undefined
+          })
+        ]
+      },
+      {
+        date: '2026-07-16',
+        total: 78_000,
+        entries: [
+          expect.objectContaining({
+            id: 'income-1',
+            kind: 'income',
+            signedAmount: 100_000
+          }),
+          expect.objectContaining({
+            id: 'expense-1',
+            kind: 'expense',
+            signedAmount: -22_000
+          })
+        ]
+      }
+    ]);
   });
 
   it('returns a null spending ratio when income is not positive', () => {

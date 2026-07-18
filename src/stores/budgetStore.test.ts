@@ -144,6 +144,21 @@ class FailingSaveBudgetRepository extends MemoryBudgetRepository {
     throw new Error('save failed');
   }
 
+  async addIncomeRecord(): Promise<void> {
+    this.addIncomeRecordCount += 1;
+    throw new Error('save failed');
+  }
+
+  async updateIncomeRecord(): Promise<void> {
+    this.updateIncomeRecordCount += 1;
+    throw new Error('save failed');
+  }
+
+  async deleteIncomeRecord(): Promise<void> {
+    this.deleteIncomeRecordCount += 1;
+    throw new Error('save failed');
+  }
+
   async addPersonRecord(): Promise<void> {
     this.addPersonRecordCount += 1;
     throw new Error('save failed');
@@ -270,6 +285,214 @@ describe('useBudgetStore', () => {
 
     expect(store.monthSummary.income).toBe(2_900_000);
     expect(store.getMonthSummary('2026-08').income).toBe(3_050_000);
+  });
+
+  test('adds an income record without changing base monthly income', async () => {
+    vi.setSystemTime(new Date('2026-07-18T09:00:00.000Z'));
+    const repository = new MemoryBudgetRepository({
+      ...createEmptyBudgetData(),
+      months: { '2026-07': { month: '2026-07', income: 2_800_000 } }
+    });
+    const { store } = createBudgetStoreForTest(repository);
+
+    await store.initialize();
+    store.setSelectedMonth('2026-07');
+    await store.addIncomeRecord({
+      date: '2026-07-18',
+      categoryId: 'refund',
+      amount: 100_000,
+      memo: ' 환급 '
+    });
+
+    expect(store.data.months['2026-07'].income).toBe(2_800_000);
+    expect(store.monthSummary.income).toBe(2_900_000);
+    expect(store.data.incomeRecords[0]).toEqual({
+      id: '00000000-0000-4000-8000-000000000001',
+      date: '2026-07-18',
+      month: '2026-07',
+      categoryId: 'refund',
+      amount: 100_000,
+      memo: '환급',
+      createdAt: '2026-07-18T09:00:00.000Z'
+    });
+    expect(repository.savedData?.incomeRecords[0]).toEqual(store.data.incomeRecords[0]);
+    expect(repository.addIncomeRecordCount).toBe(1);
+    expect(repository.setIncomeCount).toBe(0);
+  });
+
+  test('updates and deletes income records while preserving createdAt', async () => {
+    const repository = new MemoryBudgetRepository({
+      ...createEmptyBudgetData(),
+      months: { '2026-07': { month: '2026-07', income: 2_800_000 } },
+      incomeRecords: [
+        {
+          id: 'income-id',
+          date: '2026-07-18',
+          month: '2026-07',
+          categoryId: 'refund',
+          amount: 100_000,
+          memo: '환급',
+          createdAt: '2026-07-18T01:00:00.000Z'
+        }
+      ]
+    });
+    const { store } = createBudgetStoreForTest(repository);
+
+    await store.initialize();
+    store.setSelectedMonth('2026-07');
+    await store.updateIncomeRecord({
+      id: 'income-id',
+      date: '2026-08-01',
+      categoryId: 'side',
+      amount: 150_000,
+      memo: ' 부수입 '
+    });
+
+    expect(store.data.incomeRecords[0]).toEqual({
+      id: 'income-id',
+      date: '2026-08-01',
+      month: '2026-08',
+      categoryId: 'side',
+      amount: 150_000,
+      memo: '부수입',
+      createdAt: '2026-07-18T01:00:00.000Z'
+    });
+    expect(store.monthSummary.income).toBe(2_800_000);
+    expect(store.getMonthSummary('2026-08').income).toBe(150_000);
+    expect(repository.savedData?.incomeRecords[0]).toEqual(store.data.incomeRecords[0]);
+    expect(repository.updateIncomeRecordCount).toBe(1);
+
+    await store.deleteIncomeRecord('income-id');
+
+    expect(store.data.incomeRecords).toEqual([]);
+    expect(repository.savedData?.incomeRecords).toEqual([]);
+    expect(store.getMonthSummary('2026-08').income).toBe(0);
+    expect(repository.deleteIncomeRecordCount).toBe(1);
+  });
+
+  test('validates income records before persisting them', async () => {
+    const { repository, store } = createBudgetStoreForTest();
+    await store.initialize();
+
+    await expect(
+      store.addIncomeRecord({
+        date: '',
+        categoryId: 'refund',
+        amount: 100_000,
+        memo: '환급'
+      })
+    ).rejects.toThrow('수입 날짜를 입력해주세요.');
+    await expect(
+      store.addIncomeRecord({
+        date: '2026-07-18',
+        categoryId: 'refund',
+        amount: Number.POSITIVE_INFINITY,
+        memo: '환급'
+      })
+    ).rejects.toThrow('수입 금액은 0원보다 커야 합니다.');
+    await expect(
+      store.addIncomeRecord({
+        date: '2026-07-18',
+        categoryId: 'refund',
+        amount: 0,
+        memo: '환급'
+      })
+    ).rejects.toThrow('수입 금액은 0원보다 커야 합니다.');
+    await expect(
+      store.addIncomeRecord({
+        date: '2026-13-01',
+        categoryId: 'refund',
+        amount: 100_000,
+        memo: '환급'
+      })
+    ).rejects.toThrow('수입 날짜를 입력해주세요.');
+
+    expect(repository.addIncomeRecordCount).toBe(0);
+    expect(store.data.incomeRecords).toEqual([]);
+  });
+
+  test('does not commit income records in memory when persistence fails', async () => {
+    const { repository, store } = createBudgetStoreForTest(new FailingSaveBudgetRepository());
+    await store.initialize();
+
+    await expect(
+      store.addIncomeRecord({
+        date: '2026-07-18',
+        categoryId: 'refund',
+        amount: 100_000,
+        memo: '환급'
+      })
+    ).rejects.toThrow('save failed');
+
+    expect(repository.addIncomeRecordCount).toBe(1);
+    expect(store.data.incomeRecords).toEqual([]);
+  });
+
+  test('groups income and expenses by date with signed daily totals', async () => {
+    const repository = new MemoryBudgetRepository({
+      ...createEmptyBudgetData(),
+      expenses: [
+        {
+          id: 'expense-1',
+          date: '2026-07-16',
+          month: '2026-07',
+          categoryId: 'lunch',
+          amount: 22_000,
+          memo: '점심',
+          createdAt: '2026-07-16T01:00:00.000Z'
+        },
+        {
+          id: 'expense-2',
+          date: '2026-07-17',
+          month: '2026-07',
+          categoryId: 'transport',
+          amount: 5_000,
+          memo: '버스'
+        }
+      ],
+      incomeRecords: [
+        {
+          id: 'income-1',
+          date: '2026-07-16',
+          month: '2026-07',
+          categoryId: 'refund',
+          amount: 100_000,
+          memo: '환급',
+          createdAt: '2026-07-16T02:00:00.000Z'
+        }
+      ]
+    });
+    const { store } = createBudgetStoreForTest(repository);
+
+    await store.initialize();
+    store.setSelectedMonth('2026-07');
+
+    expect(store.ledgerGroups.map((group) => group.date)).toEqual(['2026-07-17', '2026-07-16']);
+    expect(store.ledgerGroups[0].total).toBe(-5_000);
+    expect(store.ledgerGroups[1].total).toBe(78_000);
+    expect(store.ledgerGroups[1].entries.map((entry) => entry.kind)).toEqual(['income', 'expense']);
+    expect(store.ledgerGroups[1].entries.map((entry) => entry.signedAmount)).toEqual([100_000, -22_000]);
+  });
+
+  test('includes months that only have income records in registered months', async () => {
+    const repository = new MemoryBudgetRepository({
+      ...createEmptyBudgetData(),
+      incomeRecords: [
+        {
+          id: 'income-1',
+          date: '2026-08-01',
+          month: '2026-08',
+          categoryId: 'carryOver',
+          amount: 50_000,
+          memo: '이월'
+        }
+      ]
+    });
+    const { store } = createBudgetStoreForTest(repository);
+
+    await store.initialize();
+
+    expect(store.registeredMonths).toContain('2026-08');
   });
 
   test('rejects non-positive income additions without saving', async () => {

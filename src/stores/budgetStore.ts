@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 
 import {
+  calculateLedgerGroups,
   calculateMonthlyExpenseStats,
   calculateMonthSummary,
   calculatePersonBalances,
@@ -10,7 +11,7 @@ import {
   getCurrentMonth,
   toMonth
 } from '../domain/calculations';
-import type { BudgetData, CategoryId, Expense, PersonMoneyDirection } from '../domain/types';
+import type { BudgetData, CategoryId, Expense, IncomeCategoryId, IncomeRecord, PersonMoneyDirection } from '../domain/types';
 import type { BudgetRepository } from '../storage/budgetRepository';
 import { parseBudgetJson, stringifyBudgetData } from '../storage/exportImport';
 import { requireSupabaseClient } from '../lib/supabaseClient';
@@ -53,12 +54,14 @@ const compareExpensesByDateAndCreatedAt = (left: Expense, right: Expense): numbe
   return expenseSortKey(right).localeCompare(expenseSortKey(left));
 };
 
-const isValidExpenseDate = (date: string): boolean => {
+const isValidDate = (date: string): boolean => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return false;
   }
 
-  return new Date(`${date}T00:00:00.000Z`).toISOString().slice(0, 10) === date;
+  const parsedDate = new Date(`${date}T00:00:00.000Z`);
+
+  return !Number.isNaN(parsedDate.getTime()) && parsedDate.toISOString().slice(0, 10) === date;
 };
 
 export function createBudgetStore(repository: BudgetRepository) {
@@ -79,11 +82,18 @@ export function createBudgetStore(repository: BudgetRepository) {
         .filter((expense) => expense.month === selectedMonth.value)
         .sort(compareExpensesByDateAndCreatedAt)
     );
+    const ledgerGroups = computed(() =>
+      calculateLedgerGroups(selectedMonth.value, data.value.expenses, data.value.incomeRecords)
+    );
     const registeredMonths = computed(() => {
       const months = new Set<string>(Object.keys(data.value.months));
 
       for (const expense of data.value.expenses) {
         months.add(expense.month);
+      }
+
+      for (const incomeRecord of data.value.incomeRecords) {
+        months.add(incomeRecord.month);
       }
 
       return [...months].sort((left, right) => right.localeCompare(left));
@@ -190,7 +200,7 @@ export function createBudgetStore(repository: BudgetRepository) {
     }): Promise<void> => {
       await ensureInitialized();
 
-      if (!isValidExpenseDate(payload.date)) {
+      if (!isValidDate(payload.date)) {
         throw new Error('지출 날짜를 입력해주세요.');
       }
 
@@ -217,6 +227,78 @@ export function createBudgetStore(repository: BudgetRepository) {
       data.value.expenses = data.value.expenses.map((expense) =>
         expense.id === nextExpense.id ? nextExpense : expense
       );
+    };
+
+    const validateIncomeRecordPayload = (date: string, amount: number): void => {
+      if (!isValidDate(date)) {
+        throw new Error('수입 날짜를 입력해주세요.');
+      }
+
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error('수입 금액은 0원보다 커야 합니다.');
+      }
+    };
+
+    const addIncomeRecord = async (payload: {
+      date: string;
+      categoryId: IncomeCategoryId;
+      amount: number;
+      memo: string;
+    }): Promise<void> => {
+      await ensureInitialized();
+      validateIncomeRecordPayload(payload.date, payload.amount);
+
+      const nextRecord: IncomeRecord = {
+        id: newId(),
+        createdAt: new Date().toISOString(),
+        date: payload.date,
+        month: toMonth(payload.date),
+        categoryId: payload.categoryId,
+        amount: payload.amount,
+        memo: payload.memo.trim()
+      };
+
+      await repository.addIncomeRecord(nextRecord);
+      data.value.incomeRecords.push(nextRecord);
+    };
+
+    const updateIncomeRecord = async (payload: {
+      id: string;
+      date: string;
+      categoryId: IncomeCategoryId;
+      amount: number;
+      memo: string;
+    }): Promise<void> => {
+      await ensureInitialized();
+      validateIncomeRecordPayload(payload.date, payload.amount);
+
+      const existing = data.value.incomeRecords.find((record) => record.id === payload.id);
+
+      if (!existing) {
+        return;
+      }
+
+      const nextRecord: IncomeRecord = {
+        ...existing,
+        date: payload.date,
+        month: toMonth(payload.date),
+        categoryId: payload.categoryId,
+        amount: payload.amount,
+        memo: payload.memo.trim()
+      };
+
+      await repository.updateIncomeRecord(nextRecord);
+      data.value.incomeRecords = data.value.incomeRecords.map((record) =>
+        record.id === nextRecord.id ? nextRecord : record
+      );
+    };
+
+    const deleteIncomeRecord = async (id: string): Promise<void> => {
+      await ensureInitialized();
+      const nextRecords = data.value.incomeRecords.filter((record) => record.id !== id);
+
+      await repository.deleteIncomeRecord(id);
+      data.value.incomeRecords = nextRecords;
     };
 
     const getMonthlyExpenseStats = (year: string) => calculateMonthlyExpenseStats(year, data.value.expenses);
@@ -294,6 +376,7 @@ export function createBudgetStore(repository: BudgetRepository) {
       loadError,
       monthSummary,
       monthExpenses,
+      ledgerGroups,
       registeredMonths,
       registeredYears,
       yearlyExpenseStats,
@@ -307,6 +390,9 @@ export function createBudgetStore(repository: BudgetRepository) {
       addExpense,
       deleteExpense,
       updateExpense,
+      addIncomeRecord,
+      updateIncomeRecord,
+      deleteIncomeRecord,
       getMonthSummary,
       getMonthlyExpenseStats,
       addPersonRecord,
