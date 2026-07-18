@@ -15,6 +15,17 @@ create table if not exists public.income_records (
 
 create index if not exists income_records_user_date_idx on public.income_records (user_id, date desc);
 
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
 drop trigger if exists income_records_set_updated_at on public.income_records;
 create trigger income_records_set_updated_at before update on public.income_records
 for each row execute function public.set_updated_at();
