@@ -70,10 +70,10 @@ export function createBudgetStore(repository: BudgetRepository) {
     let initializePromise: Promise<void> | undefined;
 
     const monthSummary = computed(() =>
-      calculateMonthSummary(selectedMonth.value, data.value.months, data.value.expenses)
+      calculateMonthSummary(selectedMonth.value, data.value.months, data.value.expenses, data.value.incomeRecords)
     );
     const getMonthSummary = (month: string) =>
-      calculateMonthSummary(month, data.value.months, data.value.expenses);
+      calculateMonthSummary(month, data.value.months, data.value.expenses, data.value.incomeRecords);
     const monthExpenses = computed(() =>
       data.value.expenses
         .filter((expense) => expense.month === selectedMonth.value)

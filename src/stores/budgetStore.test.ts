@@ -214,6 +214,41 @@ describe('useBudgetStore', () => {
     expect(repository.setIncomeRecords.at(-1)).toEqual({ month: '2026-07', income: 3100000 });
   });
 
+  test('includes income records in current and arbitrary month summaries', async () => {
+    const repository = new MemoryBudgetRepository({
+      ...createEmptyBudgetData(),
+      months: {
+        '2026-07': { month: '2026-07', income: 2_800_000 },
+        '2026-08': { month: '2026-08', income: 3_000_000 }
+      },
+      incomeRecords: [
+        {
+          id: 'income-1',
+          date: '2026-07-18',
+          month: '2026-07',
+          categoryId: 'refund',
+          amount: 100_000,
+          memo: '환급'
+        },
+        {
+          id: 'income-2',
+          date: '2026-08-01',
+          month: '2026-08',
+          categoryId: 'carryOver',
+          amount: 50_000,
+          memo: '전월 이월'
+        }
+      ]
+    });
+    const { store } = createBudgetStoreForTest(repository);
+
+    await store.initialize();
+    store.setSelectedMonth('2026-07');
+
+    expect(store.monthSummary.income).toBe(2_900_000);
+    expect(store.getMonthSummary('2026-08').income).toBe(3_050_000);
+  });
+
   test('rejects non-positive income additions without saving', async () => {
     const repository = new MemoryBudgetRepository(createEmptyBudgetData());
     const { store } = createBudgetStoreForTest(repository);

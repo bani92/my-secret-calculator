@@ -67,6 +67,69 @@ describe('budget export and import', () => {
     });
   });
 
+  test('parseBudgetJson rejects an income record with an unsupported category', () => {
+    const data = createEmptyBudgetData();
+    data.incomeRecords.push({
+      id: 'income-id',
+      date: '2026-07-18',
+      month: '2026-07',
+      categoryId: 'refund',
+      amount: 100000,
+      memo: '환급'
+    });
+
+    expect(() =>
+      parseBudgetJson(
+        JSON.stringify({
+          ...data,
+          incomeRecords: [{ ...data.incomeRecords[0], categoryId: 'unknown' }]
+        })
+      )
+    ).toThrow('지원하지 않는 백업 파일입니다');
+  });
+
+  test('parseBudgetJson rejects an income record with a non-positive amount', () => {
+    const data = createEmptyBudgetData();
+    data.incomeRecords.push({
+      id: 'income-id',
+      date: '2026-07-18',
+      month: '2026-07',
+      categoryId: 'refund',
+      amount: 0,
+      memo: '환급'
+    });
+
+    expect(() => parseBudgetJson(JSON.stringify(data))).toThrow('지원하지 않는 백업 파일입니다');
+  });
+
+  test('parseBudgetJson rejects an income record with an invalid date', () => {
+    const data = createEmptyBudgetData();
+    data.incomeRecords.push({
+      id: 'income-id',
+      date: '2026-02-30',
+      month: '2026-02',
+      categoryId: 'refund',
+      amount: 100000,
+      memo: '환급'
+    });
+
+    expect(() => parseBudgetJson(JSON.stringify(data))).toThrow('지원하지 않는 백업 파일입니다');
+  });
+
+  test('parseBudgetJson rejects an income record whose month does not match its date', () => {
+    const data = createEmptyBudgetData();
+    data.incomeRecords.push({
+      id: 'income-id',
+      date: '2026-07-18',
+      month: '2026-08',
+      categoryId: 'refund',
+      amount: 100000,
+      memo: '환급'
+    });
+
+    expect(() => parseBudgetJson(JSON.stringify(data))).toThrow('지원하지 않는 백업 파일입니다');
+  });
+
   test('stringifyBudgetData returns pretty JSON', () => {
     expect(stringifyBudgetData(sampleBudgetData)).toBe(JSON.stringify(sampleBudgetData, null, 2));
   });
@@ -96,6 +159,17 @@ describe('budget export and import', () => {
         JSON.stringify({
           ...sampleBudgetData,
           expenses: [{ ...sampleBudgetData.expenses[0], createdAt: 123 }]
+        })
+      )
+    ).toThrow('지원하지 않는 백업 파일입니다');
+  });
+
+  test('parseBudgetJson rejects an expense whose month does not match its date', () => {
+    expect(() =>
+      parseBudgetJson(
+        JSON.stringify({
+          ...sampleBudgetData,
+          expenses: [{ ...sampleBudgetData.expenses[0], month: '2026-07' }]
         })
       )
     ).toThrow('지원하지 않는 백업 파일입니다');

@@ -1,3 +1,4 @@
+import { toMonth } from '../domain/calculations';
 import type { BudgetData, IncomeRecord } from '../domain/types';
 
 const unsupportedBackupErrorMessage = '지원하지 않는 백업 파일입니다';
@@ -32,7 +33,9 @@ export function parseBudgetJson(raw: string): BudgetData {
   };
 }
 
-function isSupportedBudgetData(value: unknown): value is BudgetData {
+function isSupportedBudgetData(value: unknown): value is Omit<BudgetData, 'incomeRecords'> & {
+  incomeRecords?: BudgetData['incomeRecords'];
+} {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false;
   }
@@ -58,8 +61,9 @@ function isIncomeRecord(value: unknown): value is IncomeRecord {
 
   return (
     typeof value.id === 'string' &&
-    isIsoDate(value.date) &&
+    isValidIsoDate(value.date) &&
     isMonth(value.month) &&
+    toMonth(value.date) === value.month &&
     typeof value.categoryId === 'string' &&
     supportedIncomeCategoryIds.has(value.categoryId) &&
     isPositiveInteger(value.amount) &&
@@ -77,7 +81,7 @@ function isMonthRecord(value: unknown): value is BudgetData['months'][string] {
     return false;
   }
 
-  return typeof value.month === 'string' && isFiniteNumber(value.income);
+  return isMonth(value.month) && isFiniteNumber(value.income);
 }
 
 function isExpense(value: unknown): value is BudgetData['expenses'][number] {
@@ -87,8 +91,9 @@ function isExpense(value: unknown): value is BudgetData['expenses'][number] {
 
   return (
     typeof value.id === 'string' &&
-    typeof value.date === 'string' &&
-    typeof value.month === 'string' &&
+    isValidIsoDate(value.date) &&
+    isMonth(value.month) &&
+    toMonth(value.date) === value.month &&
     typeof value.categoryId === 'string' &&
     supportedCategoryIds.has(value.categoryId) &&
     isFiniteNumber(value.amount) &&
@@ -104,7 +109,7 @@ function isPersonMoneyRecord(value: unknown): value is BudgetData['personRecords
 
   return (
     typeof value.id === 'string' &&
-    typeof value.date === 'string' &&
+    isValidIsoDate(value.date) &&
     typeof value.personName === 'string' &&
     typeof value.direction === 'string' &&
     supportedPersonMoneyDirections.has(value.direction) &&
@@ -126,8 +131,12 @@ function isPositiveInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0;
 }
 
-function isIsoDate(value: unknown): value is string {
-  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+function isValidIsoDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  return new Date(`${value}T00:00:00.000Z`).toISOString().slice(0, 10) === value;
 }
 
 function isMonth(value: unknown): value is string {
