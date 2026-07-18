@@ -136,7 +136,9 @@ function isValidIsoDate(value: unknown): value is string {
     return false;
   }
 
-  return new Date(`${value}T00:00:00.000Z`).toISOString().slice(0, 10) === value;
+  const date = new Date(`${value}T00:00:00.000Z`);
+
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
 function isMonth(value: unknown): value is string {
