@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 
-import type { BudgetData, Expense, MonthRecord, PersonMoneyRecord } from '../domain/types';
+import type { BudgetData, Expense, IncomeRecord, MonthRecord, PersonMoneyRecord } from '../domain/types';
 import {
   SupabaseBudgetRepository,
   type SupabaseBudgetDataClient,
@@ -25,6 +25,16 @@ const expense: Expense = {
   createdAt: '2026-07-11T03:04:05.000Z'
 };
 
+const incomeRecord: IncomeRecord = {
+  id: 'income-1',
+  date: '2026-07-12',
+  month: '2026-07',
+  categoryId: 'refund',
+  amount: 100_000,
+  memo: 'refund',
+  createdAt: '2026-07-12T03:04:05.000Z'
+};
+
 const personRecord: PersonMoneyRecord = {
   id: 'person-1',
   date: '2026-07-11',
@@ -39,7 +49,7 @@ const replacement: BudgetData = {
   version: 1,
   months: { [month.month]: month },
   expenses: [expense],
-  incomeRecords: [],
+  incomeRecords: [incomeRecord],
   personRecords: [personRecord]
 };
 
@@ -106,7 +116,7 @@ function createClient(
 }
 
 describe('SupabaseBudgetRepository', () => {
-  test('loads and maps all three Supabase budget tables', async () => {
+  test('loads and maps all four Supabase budget tables', async () => {
     const fake = createClient([
       success([{ month: '2026-07', income: 3_000_000 }]),
       success([
@@ -118,6 +128,17 @@ describe('SupabaseBudgetRepository', () => {
           amount: expense.amount,
           memo: expense.memo,
           created_at: '2026-07-11T03:04:05.000Z'
+        }
+      ]),
+      success([
+        {
+          id: incomeRecord.id,
+          date: incomeRecord.date,
+          month: incomeRecord.month,
+          category_id: incomeRecord.categoryId,
+          amount: incomeRecord.amount,
+          memo: incomeRecord.memo,
+          created_at: incomeRecord.createdAt
         }
       ]),
       success([
@@ -142,9 +163,15 @@ describe('SupabaseBudgetRepository', () => {
       amount: 12_000,
       createdAt: '2026-07-11T03:04:05.000Z'
     });
+    expect(data.incomeRecords[0]).toMatchObject({
+      categoryId: 'refund',
+      amount: 100_000,
+      createdAt: '2026-07-12T03:04:05.000Z'
+    });
     expect(data.personRecords[0]).toMatchObject({ personName: '민수', settled: false });
     expect(fake.from).toHaveBeenCalledWith('month_incomes');
     expect(fake.from).toHaveBeenCalledWith('expenses');
+    expect(fake.from).toHaveBeenCalledWith('income_records');
     expect(fake.from).toHaveBeenCalledWith('person_money_records');
   });
 
@@ -215,6 +242,59 @@ describe('SupabaseBudgetRepository', () => {
     expect(query.eq).toHaveBeenCalledWith('id', updatedExpense.id);
   });
 
+  test('inserts an income record with snake_case columns', async () => {
+    const fake = createClient([success()]);
+    const repository = new SupabaseBudgetRepository(() => fake.client);
+
+    await repository.addIncomeRecord(incomeRecord);
+
+    expect(fake.queriesFor('income_records')[0].insert).toHaveBeenCalledWith({
+      id: incomeRecord.id,
+      date: incomeRecord.date,
+      month: incomeRecord.month,
+      category_id: incomeRecord.categoryId,
+      amount: incomeRecord.amount,
+      memo: incomeRecord.memo,
+      created_at: incomeRecord.createdAt
+    });
+  });
+
+  test('updates an income record with mutable snake_case columns', async () => {
+    const fake = createClient([success()]);
+    const repository = new SupabaseBudgetRepository(() => fake.client);
+    const updatedIncomeRecord: IncomeRecord = {
+      ...incomeRecord,
+      date: '2026-08-01',
+      month: '2026-08',
+      categoryId: 'side',
+      amount: 150_000,
+      memo: 'updated'
+    };
+
+    await repository.updateIncomeRecord(updatedIncomeRecord);
+
+    const query = fake.queriesFor('income_records')[0];
+    expect(query.update).toHaveBeenCalledWith({
+      date: updatedIncomeRecord.date,
+      month: updatedIncomeRecord.month,
+      category_id: updatedIncomeRecord.categoryId,
+      amount: updatedIncomeRecord.amount,
+      memo: updatedIncomeRecord.memo
+    });
+    expect(query.eq).toHaveBeenCalledWith('id', updatedIncomeRecord.id);
+  });
+
+  test('deletes an income record by id', async () => {
+    const fake = createClient([success()]);
+    const repository = new SupabaseBudgetRepository(() => fake.client);
+
+    await repository.deleteIncomeRecord(incomeRecord.id);
+
+    const query = fake.queriesFor('income_records')[0];
+    expect(query.delete).toHaveBeenCalledOnce();
+    expect(query.eq).toHaveBeenCalledWith('id', incomeRecord.id);
+  });
+
   test('inserts a person-money record with snake_case columns', async () => {
     const fake = createClient([success()]);
     const repository = new SupabaseBudgetRepository(() => fake.client);
@@ -263,6 +343,17 @@ describe('SupabaseBudgetRepository', () => {
           created_at: expense.createdAt
         }
       ],
+      p_income_records: [
+        {
+          id: incomeRecord.id,
+          date: incomeRecord.date,
+          month: incomeRecord.month,
+          category_id: incomeRecord.categoryId,
+          amount: incomeRecord.amount,
+          memo: incomeRecord.memo,
+          created_at: incomeRecord.createdAt
+        }
+      ],
       p_person_records: [
         {
           id: personRecord.id,
@@ -279,9 +370,12 @@ describe('SupabaseBudgetRepository', () => {
     expect(fake.from).not.toHaveBeenCalled();
   });
 
-  test('schema preserves imported created_at and falls back to expense date', () => {
+  test('schema defines income records and preserves imported created_at with date fallback', () => {
     const schema = readFileSync('supabase/schema.sql', 'utf8');
 
+    expect(schema).toContain('create table public.income_records');
+    expect(schema).toContain('p_income_records jsonb');
+    expect(schema).toContain('from pg_catalog.jsonb_array_elements(p_income_records) as item(value)');
     expect(schema).toContain(
       "coalesce((item.value ->> 'created_at')::timestamptz, (item.value ->> 'date')::timestamptz)"
     );
@@ -289,13 +383,17 @@ describe('SupabaseBudgetRepository', () => {
   });
 
   test.each([
-    ['load month rows', (repository: SupabaseBudgetRepository) => repository.load(), [failure(), success([]), success([])]],
-    ['load expense rows', (repository: SupabaseBudgetRepository) => repository.load(), [success([]), failure(), success([])]],
-    ['load person-money rows', (repository: SupabaseBudgetRepository) => repository.load(), [success([]), success([]), failure()]],
+    ['load month rows', (repository: SupabaseBudgetRepository) => repository.load(), [failure(), success([]), success([]), success([])]],
+    ['load expense rows', (repository: SupabaseBudgetRepository) => repository.load(), [success([]), failure(), success([]), success([])]],
+    ['load income rows', (repository: SupabaseBudgetRepository) => repository.load(), [success([]), success([]), failure(), success([])]],
+    ['load person-money rows', (repository: SupabaseBudgetRepository) => repository.load(), [success([]), success([]), success([]), failure()]],
     ['set income', (repository: SupabaseBudgetRepository) => repository.setIncome(month), [failure()]],
     ['add expense', (repository: SupabaseBudgetRepository) => repository.addExpense(expense), [failure()]],
     ['delete expense', (repository: SupabaseBudgetRepository) => repository.deleteExpense(expense.id), [failure()]],
     ['update expense', (repository: SupabaseBudgetRepository) => repository.updateExpense(expense), [failure()]],
+    ['add income record', (repository: SupabaseBudgetRepository) => repository.addIncomeRecord(incomeRecord), [failure()]],
+    ['delete income record', (repository: SupabaseBudgetRepository) => repository.deleteIncomeRecord(incomeRecord.id), [failure()]],
+    ['update income record', (repository: SupabaseBudgetRepository) => repository.updateIncomeRecord(incomeRecord), [failure()]],
     ['add person-money record', (repository: SupabaseBudgetRepository) => repository.addPersonRecord(personRecord), [failure()]],
     ['set person-money record settled', (repository: SupabaseBudgetRepository) => repository.setPersonRecordSettled(personRecord.id, true), [failure()]]
   ])('returns the generic error when %s fails', async (_label, operation, queryResults) => {

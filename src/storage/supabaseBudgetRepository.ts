@@ -2,6 +2,8 @@ import type {
   BudgetData,
   CategoryId,
   Expense,
+  IncomeCategoryId,
+  IncomeRecord,
   MonthRecord,
   PersonMoneyDirection,
   PersonMoneyRecord
@@ -9,7 +11,7 @@ import type {
 import { requireSupabaseClient } from '../lib/supabaseClient';
 import type { BudgetRepository } from './budgetRepository';
 
-type BudgetTable = 'month_incomes' | 'expenses' | 'person_money_records';
+type BudgetTable = 'month_incomes' | 'expenses' | 'income_records' | 'person_money_records';
 
 export interface SupabaseQueryResponse<T> {
   data: T | null;
@@ -29,6 +31,7 @@ export interface SupabaseBudgetQuery extends PromiseLike<SupabaseQueryResponse<u
 interface ReplaceBudgetDataPayload {
   p_months: Array<Pick<MonthIncomeRow, 'month' | 'income'>>;
   p_expenses: ExpenseRow[];
+  p_income_records: IncomeRecordRow[];
   p_person_records: PersonMoneyRecordRow[];
 }
 
@@ -53,6 +56,16 @@ interface ExpenseRow {
   date: string;
   month: string;
   category_id: CategoryId;
+  amount: number;
+  memo: string;
+  created_at?: string;
+}
+
+interface IncomeRecordRow {
+  id: string;
+  date: string;
+  month: string;
+  category_id: IncomeCategoryId;
   amount: number;
   memo: string;
   created_at?: string;
@@ -92,6 +105,18 @@ function toExpenseRow(expense: Expense): ExpenseRow {
   };
 }
 
+function toIncomeRecordRow(record: IncomeRecord): IncomeRecordRow {
+  return {
+    id: record.id,
+    date: record.date,
+    month: record.month,
+    category_id: record.categoryId,
+    amount: record.amount,
+    memo: record.memo,
+    ...(record.createdAt === undefined ? {} : { created_at: record.createdAt })
+  };
+}
+
 function toPersonMoneyRecordRow(record: PersonMoneyRecord): PersonMoneyRecordRow {
   return {
     id: record.id,
@@ -115,18 +140,21 @@ export class SupabaseBudgetRepository implements BudgetRepository {
 
   async load(): Promise<BudgetData> {
     const client = this.client();
-    const [monthResponse, expenseResponse, personResponse] = await Promise.all([
+    const [monthResponse, expenseResponse, incomeRecordResponse, personResponse] = await Promise.all([
       client.from('month_incomes').select(),
       client.from('expenses').select(),
+      client.from('income_records').select(),
       client.from('person_money_records').select()
     ]);
 
     ensureSuccess(monthResponse);
     ensureSuccess(expenseResponse);
+    ensureSuccess(incomeRecordResponse);
     ensureSuccess(personResponse);
 
     const monthRows = rows<MonthIncomeRow>(monthResponse.data);
     const expenseRows = rows<ExpenseRow>(expenseResponse.data);
+    const incomeRecordRows = rows<IncomeRecordRow>(incomeRecordResponse.data);
     const personRows = rows<PersonMoneyRecordRow>(personResponse.data);
 
     return {
@@ -143,7 +171,15 @@ export class SupabaseBudgetRepository implements BudgetRepository {
         memo: row.memo,
         createdAt: row.created_at
       })),
-      incomeRecords: [],
+      incomeRecords: incomeRecordRows.map((row) => ({
+        id: row.id,
+        date: row.date,
+        month: row.month,
+        categoryId: row.category_id,
+        amount: row.amount,
+        memo: row.memo,
+        createdAt: row.created_at
+      })),
       personRecords: personRows.map((row) => ({
         id: row.id,
         date: row.date,
@@ -191,6 +227,33 @@ export class SupabaseBudgetRepository implements BudgetRepository {
     ensureSuccess(response);
   }
 
+  async addIncomeRecord(record: IncomeRecord): Promise<void> {
+    const response = await this.client().from('income_records').insert(toIncomeRecordRow(record));
+
+    ensureSuccess(response);
+  }
+
+  async updateIncomeRecord(record: IncomeRecord): Promise<void> {
+    const response = await this.client()
+      .from('income_records')
+      .update({
+        date: record.date,
+        month: record.month,
+        category_id: record.categoryId,
+        amount: record.amount,
+        memo: record.memo
+      })
+      .eq('id', record.id);
+
+    ensureSuccess(response);
+  }
+
+  async deleteIncomeRecord(id: string): Promise<void> {
+    const response = await this.client().from('income_records').delete().eq('id', id);
+
+    ensureSuccess(response);
+  }
+
   async addPersonRecord(record: PersonMoneyRecord): Promise<void> {
     const response = await this.client()
       .from('person_money_records')
@@ -215,6 +278,7 @@ export class SupabaseBudgetRepository implements BudgetRepository {
         income: record.income
       })),
       p_expenses: data.expenses.map(toExpenseRow),
+      p_income_records: data.incomeRecords.map(toIncomeRecordRow),
       p_person_records: data.personRecords.map(toPersonMoneyRecordRow)
     });
 

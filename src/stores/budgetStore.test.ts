@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 
 import { createEmptyBudgetData } from '../domain/calculations';
-import type { BudgetData, Expense, MonthRecord, PersonMoneyRecord } from '../domain/types';
+import type { BudgetData, Expense, IncomeRecord, MonthRecord, PersonMoneyRecord } from '../domain/types';
 import type { BudgetRepository } from '../storage/budgetRepository';
 import { parseBudgetJson } from '../storage/exportImport';
 import { createBudgetStore, useBudgetStore } from './budgetStore';
@@ -15,6 +15,9 @@ class MemoryBudgetRepository implements BudgetRepository {
   addExpenseCount = 0;
   deleteExpenseCount = 0;
   updateExpenseCount = 0;
+  addIncomeRecordCount = 0;
+  deleteIncomeRecordCount = 0;
+  updateIncomeRecordCount = 0;
   addPersonRecordCount = 0;
   setPersonRecordSettledCount = 0;
   replaceAllCount = 0;
@@ -50,6 +53,26 @@ class MemoryBudgetRepository implements BudgetRepository {
     this.data.expenses = this.data.expenses.map((expense) =>
       expense.id === nextExpense.id ? structuredClone(nextExpense) : expense
     );
+    this.saveSnapshot();
+  }
+
+  async addIncomeRecord(record: IncomeRecord): Promise<void> {
+    this.addIncomeRecordCount += 1;
+    this.data.incomeRecords.push(structuredClone(record));
+    this.saveSnapshot();
+  }
+
+  async updateIncomeRecord(nextRecord: IncomeRecord): Promise<void> {
+    this.updateIncomeRecordCount += 1;
+    this.data.incomeRecords = this.data.incomeRecords.map((record) =>
+      record.id === nextRecord.id ? structuredClone(nextRecord) : record
+    );
+    this.saveSnapshot();
+  }
+
+  async deleteIncomeRecord(id: string): Promise<void> {
+    this.deleteIncomeRecordCount += 1;
+    this.data.incomeRecords = this.data.incomeRecords.filter((record) => record.id !== id);
     this.saveSnapshot();
   }
 

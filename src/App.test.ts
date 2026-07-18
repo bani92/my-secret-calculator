@@ -72,6 +72,20 @@ function createInMemoryRepository(): BudgetRepository {
         expense.id === nextExpense.id ? nextExpense : expense
       );
     },
+    addIncomeRecord: async (record) => {
+      ensureWritable();
+      budgetData.incomeRecords.push(record);
+    },
+    updateIncomeRecord: async (nextRecord) => {
+      ensureWritable();
+      budgetData.incomeRecords = budgetData.incomeRecords.map((record) =>
+        record.id === nextRecord.id ? nextRecord : record
+      );
+    },
+    deleteIncomeRecord: async (id) => {
+      ensureWritable();
+      budgetData.incomeRecords = budgetData.incomeRecords.filter((record) => record.id !== id);
+    },
     addPersonRecord: async (record) => {
       ensureWritable();
       budgetData.personRecords.push(record);

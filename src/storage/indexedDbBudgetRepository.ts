@@ -1,5 +1,5 @@
 import { createEmptyBudgetData } from '../domain/calculations';
-import type { BudgetData, Expense, MonthRecord, PersonMoneyRecord } from '../domain/types';
+import type { BudgetData, Expense, IncomeRecord, MonthRecord, PersonMoneyRecord } from '../domain/types';
 import type { BudgetRepository } from './budgetRepository';
 import { parseBudgetJson, stringifyBudgetData } from './exportImport';
 
@@ -55,6 +55,27 @@ export class IndexedDbBudgetRepository implements BudgetRepository {
     const data = await this.load();
 
     data.expenses = data.expenses.map((expense) => (expense.id === nextExpense.id ? nextExpense : expense));
+    await this.write(data);
+  }
+
+  async addIncomeRecord(record: IncomeRecord): Promise<void> {
+    const data = await this.load();
+
+    data.incomeRecords.push(record);
+    await this.write(data);
+  }
+
+  async updateIncomeRecord(nextRecord: IncomeRecord): Promise<void> {
+    const data = await this.load();
+
+    data.incomeRecords = data.incomeRecords.map((record) => (record.id === nextRecord.id ? nextRecord : record));
+    await this.write(data);
+  }
+
+  async deleteIncomeRecord(id: string): Promise<void> {
+    const data = await this.load();
+
+    data.incomeRecords = data.incomeRecords.filter((record) => record.id !== id);
     await this.write(data);
   }
 

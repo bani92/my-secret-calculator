@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 
 import { createEmptyBudgetData } from '../domain/calculations';
-import type { BudgetData } from '../domain/types';
+import type { BudgetData, IncomeRecord } from '../domain/types';
 import {
   IndexedDbBudgetRepository,
   type BudgetRecordStore
@@ -111,6 +111,70 @@ describe('IndexedDbBudgetRepository', () => {
       ...sampleBudgetData,
       expenses: [expense]
     });
+  });
+
+  test('adds an income record while preserving existing budget data', async () => {
+    await repository.replaceAll(sampleBudgetData);
+    const incomeRecord: IncomeRecord = {
+      id: 'income-1',
+      date: '2026-06-28',
+      month: '2026-06',
+      categoryId: 'refund',
+      amount: 100_000,
+      memo: 'refund',
+      createdAt: '2026-06-28T01:02:03.000Z'
+    };
+
+    await repository.addIncomeRecord(incomeRecord);
+
+    await expect(repository.load()).resolves.toEqual({
+      ...sampleBudgetData,
+      incomeRecords: [incomeRecord]
+    });
+  });
+
+  test('replaces an existing income record with the full next income record', async () => {
+    const incomeRecord: IncomeRecord = {
+      id: 'income-1',
+      date: '2026-06-28',
+      month: '2026-06',
+      categoryId: 'refund',
+      amount: 100_000,
+      memo: 'refund',
+      createdAt: '2026-06-28T01:02:03.000Z'
+    };
+    await repository.replaceAll({ ...sampleBudgetData, incomeRecords: [incomeRecord] });
+    const updatedIncomeRecord: IncomeRecord = {
+      ...incomeRecord,
+      date: '2026-07-01',
+      month: '2026-07',
+      categoryId: 'side',
+      amount: 150_000,
+      memo: 'updated'
+    };
+
+    await repository.updateIncomeRecord(updatedIncomeRecord);
+
+    await expect(repository.load()).resolves.toEqual({
+      ...sampleBudgetData,
+      incomeRecords: [updatedIncomeRecord]
+    });
+  });
+
+  test('deletes an income record by id', async () => {
+    const incomeRecord: IncomeRecord = {
+      id: 'income-1',
+      date: '2026-06-28',
+      month: '2026-06',
+      categoryId: 'refund',
+      amount: 100_000,
+      memo: 'refund'
+    };
+    await repository.replaceAll({ ...sampleBudgetData, incomeRecords: [incomeRecord] });
+
+    await repository.deleteIncomeRecord(incomeRecord.id);
+
+    await expect(repository.load()).resolves.toEqual(sampleBudgetData);
   });
 
   test('load falls back to empty data when stored data is unsupported', async () => {
