@@ -411,9 +411,12 @@ describe('App', () => {
     expect(wrapper.text()).toContain('+100,000원');
     expect(wrapper.text()).toContain('-22,000원');
     expect(wrapper.text()).toContain('16일');
+    expect(wrapper.find('.ledger-entry-side .ledger-entry-amount').exists()).toBe(true);
+    expect(wrapper.find('.ledger-entry-side .ledger-entry-actions').exists()).toBe(true);
   });
 
   test('adds itemized income from the income popup without changing the base income input', async () => {
+    vi.setSystemTime(new Date('2026-07-18T09:00:00.000Z'));
     const wrapper = await mountLoadedApp();
 
     await wrapper.get('[data-testid="income-input"]').setValue('2,800,000');
@@ -423,6 +426,7 @@ describe('App', () => {
     await wrapper.get('[data-testid="open-add-income"]').trigger('click');
 
     expect(wrapper.text()).toContain('수입 추가');
+    expect((wrapper.get('[data-testid="add-income-date"]').element as HTMLInputElement).value).toBe('2026-07-18');
 
     await wrapper.get('[data-testid="add-income-date"]').setValue('2026-07-16');
     await wrapper.get('[data-testid="add-income-category"]').setValue('refund');

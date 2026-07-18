@@ -822,7 +822,7 @@ hr {
 
 .ledger-entry {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(172px, auto);
+  grid-template-columns: minmax(0, 1fr) minmax(220px, auto);
   align-items: center;
   gap: var(--space-3);
   min-height: 58px;
@@ -850,8 +850,10 @@ hr {
 }
 
 .ledger-entry-side {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(96px, auto) minmax(92px, auto);
   align-items: center;
+  justify-items: end;
   justify-content: flex-end;
   gap: var(--space-2);
   min-width: 0;
@@ -1061,11 +1063,13 @@ hr {
   }
 
   .ledger-entry-side {
-    justify-content: flex-start;
-    flex-wrap: wrap;
+    justify-content: flex-end;
+    justify-items: end;
+    grid-template-columns: minmax(96px, auto) minmax(92px, auto);
+    width: 100%;
   }
 
   .ledger-entry-actions {
-    justify-content: flex-start;
+    justify-content: flex-end;
   }
 }

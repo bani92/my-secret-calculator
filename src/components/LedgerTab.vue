@@ -335,7 +335,7 @@ const editingExpenseId = ref<string | null>(null);
 const expenseEditError = ref('');
 const expenseEditAmountDraft = ref('');
 const incomeForm = reactive({
-  date: `${store.selectedMonth}-01`,
+  date: today,
   categoryId: 'other' as IncomeCategoryId,
   memo: ''
 });
@@ -363,7 +363,6 @@ watch(
   () => store.selectedMonth,
   () => {
     incomeDraft.value = formatMoneyInput(String(baseIncome.value));
-    incomeForm.date = `${store.selectedMonth}-01`;
   }
 );
 
@@ -425,7 +424,7 @@ async function confirmCarryOver(): Promise<void> {
 function openAddIncomeDialog(): void {
   incomeAdditionDraft.value = '';
   incomeDialogError.value = '';
-  incomeForm.date = `${store.selectedMonth}-01`;
+  incomeForm.date = today;
   incomeForm.categoryId = 'other';
   incomeForm.memo = '';
   addIncomeDialogOpen.value = true;
