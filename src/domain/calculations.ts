@@ -1,4 +1,4 @@
-import type { BudgetData, CategoryId, Expense, MonthRecord, PersonMoneyRecord } from './types';
+import type { BudgetData, CategoryId, Expense, IncomeRecord, MonthRecord, PersonMoneyRecord } from './types';
 
 export type CategoryTotals = Partial<Record<CategoryId, number>>;
 
@@ -29,9 +29,14 @@ export interface MonthlyExpenseStat {
 export function calculateMonthSummary(
   month: string,
   months: Record<string, MonthRecord>,
-  expenses: Expense[]
+  expenses: Expense[],
+  incomeRecords: IncomeRecord[] = []
 ): MonthSummary {
-  const income = months[month]?.income ?? 0;
+  const baseIncome = months[month]?.income ?? 0;
+  const extraIncome = incomeRecords
+    .filter((record) => record.month === month)
+    .reduce((sum, record) => sum + record.amount, 0);
+  const income = baseIncome + extraIncome;
   const categoryTotals: CategoryTotals = {};
   let expenseTotal = 0;
 
@@ -75,6 +80,7 @@ export function createEmptyBudgetData(): BudgetData {
     version: 1,
     months: {},
     expenses: [],
+    incomeRecords: [],
     personRecords: []
   };
 }

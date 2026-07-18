@@ -25,6 +25,7 @@ const sampleBudgetData: BudgetData = {
       memo: '점심'
     }
   ],
+  incomeRecords: [],
   personRecords: [
     {
       id: 'person-1',

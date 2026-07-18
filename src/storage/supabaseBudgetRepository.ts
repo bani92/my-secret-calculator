@@ -143,6 +143,7 @@ export class SupabaseBudgetRepository implements BudgetRepository {
         memo: row.memo,
         createdAt: row.created_at
       })),
+      incomeRecords: [],
       personRecords: personRows.map((row) => ({
         id: row.id,
         date: row.date,

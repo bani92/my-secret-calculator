@@ -91,6 +91,28 @@ describe('budget domain model', () => {
     });
   });
 
+  it('adds income records to monthly income summary', () => {
+    const summary = calculateMonthSummary(
+      '2026-07',
+      { '2026-07': { month: '2026-07', income: 2800000 } },
+      [],
+      [
+        {
+          id: 'income-id',
+          date: '2026-07-18',
+          month: '2026-07',
+          categoryId: 'refund',
+          amount: 100000,
+          memo: '환급',
+          createdAt: '2026-07-18T00:00:00.000Z'
+        }
+      ]
+    );
+
+    expect(summary.income).toBe(2900000);
+    expect(summary.remaining).toBe(2900000);
+  });
+
   it('returns a null spending ratio when income is not positive', () => {
     const months: Record<string, MonthRecord> = {
       '2026-08': { month: '2026-08', income: 0 }
@@ -237,6 +259,7 @@ describe('budget domain model', () => {
       version: 1,
       months: {},
       expenses: [],
+      incomeRecords: [],
       personRecords: []
     });
   });

@@ -1,4 +1,4 @@
-import type { BudgetData } from '../domain/types';
+import type { BudgetData, IncomeRecord } from '../domain/types';
 
 const unsupportedBackupErrorMessage = '지원하지 않는 백업 파일입니다';
 const supportedCategoryIds = new Set([
@@ -13,6 +13,7 @@ const supportedCategoryIds = new Set([
   'other'
 ]);
 const supportedPersonMoneyDirections = new Set(['receivable', 'payable']);
+const supportedIncomeCategoryIds = new Set(['salary', 'side', 'carryOver', 'refund', 'transfer', 'other']);
 
 export function stringifyBudgetData(data: BudgetData): string {
   return JSON.stringify(data, null, 2);
@@ -25,7 +26,10 @@ export function parseBudgetJson(raw: string): BudgetData {
     throw new Error(unsupportedBackupErrorMessage);
   }
 
-  return parsed;
+  return {
+    ...parsed,
+    incomeRecords: parsed.incomeRecords ?? []
+  };
 }
 
 function isSupportedBudgetData(value: unknown): value is BudgetData {
@@ -40,8 +44,27 @@ function isSupportedBudgetData(value: unknown): value is BudgetData {
     isMonthRecords(candidate.months) &&
     Array.isArray(candidate.expenses) &&
     candidate.expenses.every(isExpense) &&
+    (typeof candidate.incomeRecords === 'undefined' ||
+      (Array.isArray(candidate.incomeRecords) && candidate.incomeRecords.every(isIncomeRecord))) &&
     Array.isArray(candidate.personRecords) &&
     candidate.personRecords.every(isPersonMoneyRecord)
+  );
+}
+
+function isIncomeRecord(value: unknown): value is IncomeRecord {
+  if (!isPlainObject(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.id === 'string' &&
+    isIsoDate(value.date) &&
+    isMonth(value.month) &&
+    typeof value.categoryId === 'string' &&
+    supportedIncomeCategoryIds.has(value.categoryId) &&
+    isPositiveInteger(value.amount) &&
+    typeof value.memo === 'string' &&
+    (typeof value.createdAt === 'undefined' || typeof value.createdAt === 'string')
   );
 }
 
@@ -97,4 +120,16 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+function isIsoDate(value: unknown): value is string {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function isMonth(value: unknown): value is string {
+  return typeof value === 'string' && /^\d{4}-\d{2}$/.test(value);
 }

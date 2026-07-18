@@ -22,6 +22,7 @@ const sampleBudgetData: BudgetData = {
       memo: 'Lunch'
     }
   ],
+  incomeRecords: [],
   personRecords: [
     {
       id: 'person-1',
@@ -36,6 +37,36 @@ const sampleBudgetData: BudgetData = {
 };
 
 describe('budget export and import', () => {
+  test('defaults missing incomeRecords to an empty array', () => {
+    const raw = JSON.stringify({
+      version: 1,
+      months: {},
+      expenses: [],
+      personRecords: []
+    });
+
+    expect(parseBudgetJson(raw).incomeRecords).toEqual([]);
+  });
+
+  test('preserves income records during export and import', () => {
+    const data = createEmptyBudgetData();
+    data.incomeRecords.push({
+      id: 'income-id',
+      date: '2026-07-18',
+      month: '2026-07',
+      categoryId: 'refund',
+      amount: 100000,
+      memo: '환급',
+      createdAt: '2026-07-18T01:02:03.000Z'
+    });
+
+    expect(parseBudgetJson(stringifyBudgetData(data)).incomeRecords[0]).toMatchObject({
+      id: 'income-id',
+      categoryId: 'refund',
+      amount: 100000
+    });
+  });
+
   test('stringifyBudgetData returns pretty JSON', () => {
     expect(stringifyBudgetData(sampleBudgetData)).toBe(JSON.stringify(sampleBudgetData, null, 2));
   });

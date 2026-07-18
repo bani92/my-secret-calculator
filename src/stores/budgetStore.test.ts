@@ -94,6 +94,7 @@ class FlakyLoadBudgetRepository extends MemoryBudgetRepository {
         '2026-06': { month: '2026-06', income: 700_000 }
       },
       expenses: [],
+      incomeRecords: [],
       personRecords: []
     };
   }
@@ -167,6 +168,7 @@ describe('useBudgetStore', () => {
         '2026-06': { month: '2026-06', income: 1_000_000 }
       },
       expenses: [],
+      incomeRecords: [],
       personRecords: []
     };
     const { store } = createBudgetStoreForTest(new MemoryBudgetRepository(existingData));
@@ -254,6 +256,7 @@ describe('useBudgetStore', () => {
         '2026-05': { month: '2026-05', income: 900_000 }
       },
       expenses: [],
+      incomeRecords: [],
       personRecords: []
     };
     const { repository, store } = createBudgetStoreForTest(new MemoryBudgetRepository(existingData));
@@ -292,6 +295,7 @@ describe('useBudgetStore', () => {
         '2026-06': { month: '2026-06', income: 1_200_000 }
       },
       expenses: [],
+      incomeRecords: [],
       personRecords: []
     };
     const repository = new MemoryBudgetRepository(existingData);
@@ -759,6 +763,7 @@ describe('useBudgetStore', () => {
           memo: 'existing lunch'
         }
       ],
+      incomeRecords: [],
       personRecords: []
     };
     const importedBackup = JSON.stringify({
