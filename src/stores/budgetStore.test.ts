@@ -46,10 +46,11 @@ class MemoryBudgetRepository implements BudgetRepository {
     this.saveSnapshot();
   }
 
-  async addExpense(expense: Expense): Promise<void> {
+  async addExpense(expense: Expense): Promise<boolean> {
     this.addExpenseCount += 1;
     this.data.expenses.push(structuredClone(expense));
     this.saveSnapshot();
+    return true;
   }
 
   async deleteExpense(id: string): Promise<void> {
@@ -160,7 +161,7 @@ class FailingSaveBudgetRepository extends MemoryBudgetRepository {
     throw new Error('save failed');
   }
 
-  async addExpense(): Promise<void> {
+  async addExpense(): Promise<boolean> {
     this.addExpenseCount += 1;
     throw new Error('save failed');
   }
@@ -203,6 +204,23 @@ class FailingSaveBudgetRepository extends MemoryBudgetRepository {
   async replaceAll(): Promise<void> {
     this.replaceAllCount += 1;
     throw new Error('save failed');
+  }
+}
+
+class DuplicateRecurringExpenseRepository extends MemoryBudgetRepository {
+  async addExpense(expense: Expense): Promise<boolean> {
+    if (
+      expense.recurringRuleId &&
+      this.savedData?.expenses.some(
+        (existing) =>
+          existing.recurringRuleId === expense.recurringRuleId && existing.month === expense.month
+      )
+    ) {
+      return false;
+    }
+
+    await super.addExpense(expense);
+    return true;
   }
 }
 
@@ -714,6 +732,60 @@ describe('useBudgetStore', () => {
       memo: '동양생명',
       recurringRuleId: 'rule-1'
     });
+  });
+
+  test('uses the local calendar date when generating recurring fixed expenses', async () => {
+    const repository = new MemoryBudgetRepository({
+      ...createEmptyBudgetData(),
+      recurringFixedExpenseRules: [
+        { id: 'rule-1', dayOfMonth: 1, categoryId: 'fixed', amount: 10_000, memo: '동양생명', active: true }
+      ]
+    });
+    const { store } = createBudgetStoreForTest(repository);
+
+    await store.initialize();
+    const createdCount = await store.generateDueRecurringFixedExpenses(
+      new Date('2026-07-31T15:30:00.000Z')
+    );
+
+    expect(createdCount).toBe(1);
+    expect(store.data.expenses).toMatchObject([
+      {
+        date: '2026-08-01',
+        month: '2026-08',
+        recurringRuleId: 'rule-1'
+      }
+    ]);
+  });
+
+  test('does not keep a recurring expense in memory when persistence reports a duplicate', async () => {
+    const existingData: BudgetData = {
+      ...createEmptyBudgetData(),
+      expenses: [
+        {
+          id: 'existing',
+          date: '2026-08-01',
+          month: '2026-08',
+          categoryId: 'fixed',
+          amount: 10_000,
+          memo: '동양생명',
+          recurringRuleId: 'rule-1'
+        }
+      ],
+      recurringFixedExpenseRules: [
+        { id: 'rule-1', dayOfMonth: 1, categoryId: 'fixed', amount: 10_000, memo: '동양생명', active: true }
+      ]
+    };
+    const repository = new DuplicateRecurringExpenseRepository(existingData);
+    const { store } = createBudgetStoreForTest(repository);
+
+    await store.initialize();
+    repository.savedData = structuredClone(existingData);
+    store.data.expenses = [];
+    const createdCount = await store.generateDueRecurringFixedExpenses(new Date('2026-08-01T09:00:00.000Z'));
+
+    expect(createdCount).toBe(0);
+    expect(store.data.expenses).toEqual([]);
   });
 
   test('uses the updated rule amount next month without changing the previous generated expense', async () => {

@@ -61,6 +61,7 @@ function createInMemoryRepository(): BudgetRepository {
     addExpense: async (expense) => {
       ensureWritable();
       budgetData.expenses.push(expense);
+      return true;
     },
     deleteExpense: async (id) => {
       ensureWritable();

@@ -14,6 +14,9 @@ create table if not exists public.recurring_fixed_expense_rules (
 
 alter table public.expenses add column if not exists recurring_rule_id uuid null;
 create index if not exists recurring_fixed_expense_rules_user_id_idx on public.recurring_fixed_expense_rules (user_id);
+create unique index if not exists expenses_user_recurring_rule_month_key
+on public.expenses (user_id, recurring_rule_id, month)
+where recurring_rule_id is not null;
 
 create or replace function public.set_updated_at()
 returns trigger

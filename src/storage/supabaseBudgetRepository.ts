@@ -108,6 +108,20 @@ function ensureSuccess(response: SupabaseQueryResponse<unknown>): void {
   }
 }
 
+const recurringExpenseUniqueConstraint = 'expenses_user_recurring_rule_month_key';
+
+function isRecurringExpenseDuplicate(error: unknown): boolean {
+  const serializedError = JSON.stringify(error);
+
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === '23505' &&
+    serializedError.includes(recurringExpenseUniqueConstraint)
+  );
+}
+
 function rows<T>(data: unknown): T[] {
   return Array.isArray(data) ? (data as T[]) : [];
 }
@@ -249,10 +263,15 @@ export class SupabaseBudgetRepository implements BudgetRepository {
     ensureSuccess(response);
   }
 
-  async addExpense(expense: Expense): Promise<void> {
+  async addExpense(expense: Expense): Promise<boolean> {
     const response = await this.client().from('expenses').insert(toExpenseRow(expense));
 
+    if (expense.recurringRuleId && isRecurringExpenseDuplicate(response.error)) {
+      return false;
+    }
+
     ensureSuccess(response);
+    return true;
   }
 
   async deleteExpense(id: string): Promise<void> {

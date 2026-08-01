@@ -36,11 +36,12 @@ export class LocalStorageBudgetRepository implements BudgetRepository {
     await this.write(data);
   }
 
-  async addExpense(expense: Expense): Promise<void> {
+  async addExpense(expense: Expense): Promise<boolean> {
     const data = await this.load();
 
     data.expenses.push(expense);
     await this.write(data);
+    return true;
   }
 
   async deleteExpense(id: string): Promise<void> {

@@ -97,8 +97,8 @@ function success(data: unknown = null): QueryResult {
   return { data, error: null };
 }
 
-function failure(): QueryResult {
-  return { data: null, error: requestError };
+function failure(error: unknown = requestError): QueryResult {
+  return { data: null, error };
 }
 
 function createClient(
@@ -278,6 +278,35 @@ describe('SupabaseBudgetRepository', () => {
       created_at: expense.createdAt,
       recurring_rule_id: recurringRule.id
     });
+  });
+
+  test('returns false when Supabase rejects a recurring expense duplicate', async () => {
+    const fake = createClient([
+      failure({
+        code: '23505',
+        message:
+          'duplicate key value violates unique constraint "expenses_user_recurring_rule_month_key"'
+      })
+    ]);
+    const repository = new SupabaseBudgetRepository(() => fake.client);
+
+    const inserted = await repository.addExpense({ ...expense, recurringRuleId: recurringRule.id });
+
+    expect(inserted).toBe(false);
+  });
+
+  test('keeps unrelated unique violations as save failures', async () => {
+    const fake = createClient([
+      failure({
+        code: '23505',
+        message: 'duplicate key value violates unique constraint "expenses_pkey"'
+      })
+    ]);
+    const repository = new SupabaseBudgetRepository(() => fake.client);
+
+    await expect(repository.addExpense({ ...expense, recurringRuleId: recurringRule.id })).rejects.toThrow(
+      'Supabase 가계부 요청이 실패했습니다.'
+    );
   });
 
   test('deletes an expense by id', async () => {
@@ -486,6 +515,12 @@ describe('SupabaseBudgetRepository', () => {
     expect(schema).not.toContain("coalesce((item.value ->> 'created_at')::timestamptz, now())");
     expect(schema).toContain('create table public.recurring_fixed_expense_rules');
     expect(schema).toContain('recurring_rule_id uuid');
+    const recurringMigration = readFileSync('supabase/2026-08-01-add-recurring-fixed-expenses.sql', 'utf8');
+    for (const sql of [schema, recurringMigration]) {
+      expect(sql).toContain('create unique index if not exists expenses_user_recurring_rule_month_key');
+      expect(sql).toContain('(user_id, recurring_rule_id, month)');
+      expect(sql).toContain('where recurring_rule_id is not null');
+    }
     expect(schema).toContain('p_recurring_fixed_expense_rules jsonb');
   });
 

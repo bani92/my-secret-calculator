@@ -10,7 +10,7 @@ import type {
 export interface BudgetRepository {
   load(): Promise<BudgetData>;
   setIncome(record: MonthRecord): Promise<void>;
-  addExpense(expense: Expense): Promise<void>;
+  addExpense(expense: Expense): Promise<boolean>;
   deleteExpense(id: string): Promise<void>;
   updateExpense(expense: Expense): Promise<void>;
   addIncomeRecord(record: IncomeRecord): Promise<void>;

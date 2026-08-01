@@ -200,7 +200,7 @@ export function createBudgetStore(repository: BudgetRepository) {
       amount: number;
       memo: string;
       recurringRuleId?: string;
-    }): Promise<void> => {
+    }): Promise<boolean> => {
       await ensureInitialized();
       const nextData = cloneBudgetData(data.value);
       const nextExpense = {
@@ -217,8 +217,14 @@ export function createBudgetStore(repository: BudgetRepository) {
       const validatedData = cloneBudgetData(nextData);
       const expense = validatedData.expenses[validatedData.expenses.length - 1];
 
-      await repository.addExpense(expense);
+      const inserted = await repository.addExpense(expense);
+
+      if (!inserted) {
+        return false;
+      }
+
       data.value.expenses.push(expense);
+      return true;
     };
 
     const deleteExpense = async (id: string): Promise<void> => {
@@ -407,9 +413,8 @@ export function createBudgetStore(repository: BudgetRepository) {
 
     const generateDueRecurringFixedExpenses = async (today = new Date()): Promise<number> => {
       await ensureInitialized();
-      const todayIso = today.toISOString().slice(0, 10);
-      const currentMonth = toMonth(todayIso);
-      const todayDay = Number(todayIso.slice(8, 10));
+      const currentMonth = getCurrentMonth(today);
+      const todayDay = today.getDate();
       let createdCount = 0;
 
       for (const rule of data.value.recurringFixedExpenseRules) {
@@ -425,14 +430,17 @@ export function createBudgetStore(repository: BudgetRepository) {
           continue;
         }
 
-        await addExpense({
+        const inserted = await addExpense({
           date: dateForRule(currentMonth, rule.dayOfMonth),
           categoryId: rule.categoryId,
           amount: rule.amount,
           memo: rule.memo,
           recurringRuleId: rule.id
         });
-        createdCount += 1;
+
+        if (inserted) {
+          createdCount += 1;
+        }
       }
 
       return createdCount;

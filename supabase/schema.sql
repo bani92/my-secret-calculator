@@ -79,6 +79,9 @@ create index expenses_user_date_idx on public.expenses (user_id, date desc);
 create index income_records_user_date_idx on public.income_records (user_id, date desc);
 create index person_money_records_user_date_idx on public.person_money_records (user_id, date desc);
 create index recurring_fixed_expense_rules_user_id_idx on public.recurring_fixed_expense_rules (user_id);
+create unique index if not exists expenses_user_recurring_rule_month_key
+on public.expenses (user_id, recurring_rule_id, month)
+where recurring_rule_id is not null;
 
 create or replace function public.set_updated_at()
 returns trigger
