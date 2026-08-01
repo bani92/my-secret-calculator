@@ -29,12 +29,14 @@ export function parseBudgetJson(raw: string): BudgetData {
 
   return {
     ...parsed,
-    incomeRecords: parsed.incomeRecords ?? []
+    incomeRecords: parsed.incomeRecords ?? [],
+    recurringFixedExpenseRules: parsed.recurringFixedExpenseRules ?? []
   };
 }
 
-function isSupportedBudgetData(value: unknown): value is Omit<BudgetData, 'incomeRecords'> & {
+function isSupportedBudgetData(value: unknown): value is Omit<BudgetData, 'incomeRecords' | 'recurringFixedExpenseRules'> & {
   incomeRecords?: BudgetData['incomeRecords'];
+  recurringFixedExpenseRules?: BudgetData['recurringFixedExpenseRules'];
 } {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false;
@@ -50,7 +52,30 @@ function isSupportedBudgetData(value: unknown): value is Omit<BudgetData, 'incom
     (typeof candidate.incomeRecords === 'undefined' ||
       (Array.isArray(candidate.incomeRecords) && candidate.incomeRecords.every(isIncomeRecord))) &&
     Array.isArray(candidate.personRecords) &&
-    candidate.personRecords.every(isPersonMoneyRecord)
+    candidate.personRecords.every(isPersonMoneyRecord) &&
+    (typeof candidate.recurringFixedExpenseRules === 'undefined' ||
+      (Array.isArray(candidate.recurringFixedExpenseRules) &&
+        candidate.recurringFixedExpenseRules.every(isRecurringFixedExpenseRule)))
+  );
+}
+
+function isRecurringFixedExpenseRule(value: unknown): value is BudgetData['recurringFixedExpenseRules'][number] {
+  if (!isPlainObject(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.id === 'string' &&
+    Number.isInteger(value.dayOfMonth) &&
+    value.dayOfMonth >= 1 &&
+    value.dayOfMonth <= 31 &&
+    typeof value.categoryId === 'string' &&
+    supportedCategoryIds.has(value.categoryId) &&
+    isPositiveInteger(value.amount) &&
+    typeof value.memo === 'string' &&
+    typeof value.active === 'boolean' &&
+    (typeof value.createdAt === 'undefined' || typeof value.createdAt === 'string') &&
+    (typeof value.updatedAt === 'undefined' || typeof value.updatedAt === 'string')
   );
 }
 
@@ -98,7 +123,8 @@ function isExpense(value: unknown): value is BudgetData['expenses'][number] {
     supportedCategoryIds.has(value.categoryId) &&
     isFiniteNumber(value.amount) &&
     typeof value.memo === 'string' &&
-    (typeof value.createdAt === 'undefined' || typeof value.createdAt === 'string')
+    (typeof value.createdAt === 'undefined' || typeof value.createdAt === 'string') &&
+    (typeof value.recurringRuleId === 'undefined' || typeof value.recurringRuleId === 'string')
   );
 }
 

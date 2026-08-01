@@ -179,7 +179,8 @@ export function createEmptyBudgetData(): BudgetData {
     months: {},
     expenses: [],
     incomeRecords: [],
-    personRecords: []
+    personRecords: [],
+    recurringFixedExpenseRules: []
   };
 }
 

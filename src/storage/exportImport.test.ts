@@ -23,6 +23,7 @@ const sampleBudgetData: BudgetData = {
     }
   ],
   incomeRecords: [],
+  recurringFixedExpenseRules: [],
   personRecords: [
     {
       id: 'person-1',
@@ -46,6 +47,59 @@ describe('budget export and import', () => {
     });
 
     expect(parseBudgetJson(raw).incomeRecords).toEqual([]);
+  });
+
+  test('defaults missing recurring fixed expense rules to an empty array', () => {
+    const raw = JSON.stringify({
+      version: 1,
+      months: {},
+      expenses: [],
+      incomeRecords: [],
+      personRecords: []
+    });
+
+    expect(parseBudgetJson(raw).recurringFixedExpenseRules).toEqual([]);
+  });
+
+  test('preserves recurring fixed expense rules and expense source links', () => {
+    const data = createEmptyBudgetData();
+
+    data.recurringFixedExpenseRules.push({
+      id: 'rule-id',
+      dayOfMonth: 1,
+      categoryId: 'fixed',
+      amount: 10000,
+      memo: '?숈뼇?앸챸',
+      active: true,
+      createdAt: '2026-08-01T00:00:00.000Z',
+      updatedAt: '2026-08-25T00:00:00.000Z'
+    });
+    data.expenses.push({
+      id: 'expense-id',
+      date: '2026-08-01',
+      month: '2026-08',
+      categoryId: 'fixed',
+      amount: 10000,
+      memo: '?숈뼇?앸챸',
+      recurringRuleId: 'rule-id'
+    });
+
+    expect(parseBudgetJson(stringifyBudgetData(data))).toEqual(data);
+  });
+
+  test('parseBudgetJson rejects an invalid recurring fixed expense rule', () => {
+    const data = createEmptyBudgetData();
+
+    data.recurringFixedExpenseRules.push({
+      id: 'rule-id',
+      dayOfMonth: 32,
+      categoryId: 'fixed',
+      amount: 10000,
+      memo: '?숈뼇?앸챸',
+      active: true
+    });
+
+    expect(() => parseBudgetJson(JSON.stringify(data))).toThrow();
   });
 
   test('preserves income records during export and import', () => {

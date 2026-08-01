@@ -18,6 +18,17 @@ export interface MonthRecord {
   income: number;
 }
 
+export interface RecurringFixedExpenseRule {
+  id: string;
+  dayOfMonth: number;
+  categoryId: CategoryId;
+  amount: number;
+  memo: string;
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Expense {
   id: string;
   date: string;
@@ -26,6 +37,7 @@ export interface Expense {
   amount: number;
   memo: string;
   createdAt?: string;
+  recurringRuleId?: string;
 }
 
 export interface IncomeRecord {
@@ -54,4 +66,5 @@ export interface BudgetData {
   expenses: Expense[];
   incomeRecords: IncomeRecord[];
   personRecords: PersonMoneyRecord[];
+  recurringFixedExpenseRules: RecurringFixedExpenseRule[];
 }
