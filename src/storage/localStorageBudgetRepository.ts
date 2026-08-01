@@ -1,5 +1,12 @@
 import { createEmptyBudgetData } from '../domain/calculations';
-import type { BudgetData, Expense, IncomeRecord, MonthRecord, PersonMoneyRecord } from '../domain/types';
+import type {
+  BudgetData,
+  Expense,
+  IncomeRecord,
+  MonthRecord,
+  PersonMoneyRecord,
+  RecurringFixedExpenseRule
+} from '../domain/types';
 import type { BudgetRepository } from './budgetRepository';
 import { parseBudgetJson, stringifyBudgetData } from './exportImport';
 
@@ -85,6 +92,29 @@ export class LocalStorageBudgetRepository implements BudgetRepository {
     if (record) {
       record.settled = settled;
     }
+    await this.write(data);
+  }
+
+  async addRecurringFixedExpenseRule(rule: RecurringFixedExpenseRule): Promise<void> {
+    const data = await this.load();
+
+    data.recurringFixedExpenseRules.push(rule);
+    await this.write(data);
+  }
+
+  async updateRecurringFixedExpenseRule(nextRule: RecurringFixedExpenseRule): Promise<void> {
+    const data = await this.load();
+
+    data.recurringFixedExpenseRules = data.recurringFixedExpenseRules.map((rule) =>
+      rule.id === nextRule.id ? nextRule : rule
+    );
+    await this.write(data);
+  }
+
+  async deleteRecurringFixedExpenseRule(id: string): Promise<void> {
+    const data = await this.load();
+
+    data.recurringFixedExpenseRules = data.recurringFixedExpenseRules.filter((rule) => rule.id !== id);
     await this.write(data);
   }
 

@@ -98,6 +98,22 @@ function createInMemoryRepository(): BudgetRepository {
         record.settled = settled;
       }
     },
+    addRecurringFixedExpenseRule: async (rule) => {
+      ensureWritable();
+      budgetData.recurringFixedExpenseRules.push(rule);
+    },
+    updateRecurringFixedExpenseRule: async (nextRule) => {
+      ensureWritable();
+      budgetData.recurringFixedExpenseRules = budgetData.recurringFixedExpenseRules.map((rule) =>
+        rule.id === nextRule.id ? nextRule : rule
+      );
+    },
+    deleteRecurringFixedExpenseRule: async (id) => {
+      ensureWritable();
+      budgetData.recurringFixedExpenseRules = budgetData.recurringFixedExpenseRules.filter(
+        (rule) => rule.id !== id
+      );
+    },
     replaceAll: async (data) => {
       ensureWritable();
       budgetData = cloneBudgetData(data);

@@ -1,4 +1,11 @@
-import type { BudgetData, Expense, IncomeRecord, MonthRecord, PersonMoneyRecord } from '../domain/types';
+import type {
+  BudgetData,
+  Expense,
+  IncomeRecord,
+  MonthRecord,
+  PersonMoneyRecord,
+  RecurringFixedExpenseRule
+} from '../domain/types';
 
 export interface BudgetRepository {
   load(): Promise<BudgetData>;
@@ -11,5 +18,8 @@ export interface BudgetRepository {
   deleteIncomeRecord(id: string): Promise<void>;
   addPersonRecord(record: PersonMoneyRecord): Promise<void>;
   setPersonRecordSettled(id: string, settled: boolean): Promise<void>;
+  addRecurringFixedExpenseRule(rule: RecurringFixedExpenseRule): Promise<void>;
+  updateRecurringFixedExpenseRule(rule: RecurringFixedExpenseRule): Promise<void>;
+  deleteRecurringFixedExpenseRule(id: string): Promise<void>;
   replaceAll(data: BudgetData): Promise<void>;
 }

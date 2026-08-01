@@ -1,8 +1,11 @@
+drop table if exists public.recurring_fixed_expense_rules cascade;
 drop table if exists public.person_money_records cascade;
 drop table if exists public.income_records cascade;
 drop table if exists public.expenses cascade;
 drop table if exists public.month_incomes cascade;
 drop function if exists public.replace_budget_data(jsonb, jsonb, jsonb);
+drop function if exists public.replace_budget_data(jsonb, jsonb, jsonb, jsonb);
+drop function if exists public.replace_budget_data(jsonb, jsonb, jsonb, jsonb, jsonb);
 
 create table public.month_incomes (
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
@@ -27,6 +30,22 @@ create table public.expenses (
   updated_at timestamptz not null default now(),
   check (month = to_char(date, 'YYYY-MM'))
 );
+
+create table public.recurring_fixed_expense_rules (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  day_of_month integer not null check (day_of_month between 1 and 31),
+  category_id text not null check (
+    category_id in ('lunch', 'living', 'fixed', 'dating', 'groceries', 'transport', 'health', 'gifts', 'other')
+  ),
+  amount integer not null check (amount > 0),
+  memo text not null default '',
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.expenses add column if not exists recurring_rule_id uuid null;
 
 create table public.income_records (
   id uuid primary key default gen_random_uuid(),
@@ -59,6 +78,7 @@ create table public.person_money_records (
 create index expenses_user_date_idx on public.expenses (user_id, date desc);
 create index income_records_user_date_idx on public.income_records (user_id, date desc);
 create index person_money_records_user_date_idx on public.person_money_records (user_id, date desc);
+create index recurring_fixed_expense_rules_user_id_idx on public.recurring_fixed_expense_rules (user_id);
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -79,11 +99,14 @@ create trigger income_records_set_updated_at before update on public.income_reco
 for each row execute function public.set_updated_at();
 create trigger person_money_records_set_updated_at before update on public.person_money_records
 for each row execute function public.set_updated_at();
+create trigger recurring_fixed_expense_rules_set_updated_at before update on public.recurring_fixed_expense_rules
+for each row execute function public.set_updated_at();
 
 alter table public.month_incomes enable row level security;
 alter table public.expenses enable row level security;
 alter table public.income_records enable row level security;
 alter table public.person_money_records enable row level security;
+alter table public.recurring_fixed_expense_rules enable row level security;
 
 create policy "owners manage month incomes" on public.month_incomes
 for all to authenticated
@@ -105,11 +128,17 @@ for all to authenticated
 using ((select auth.uid()) = user_id)
 with check ((select auth.uid()) = user_id);
 
+create policy "owners manage recurring fixed expense rules" on public.recurring_fixed_expense_rules
+for all to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
 create or replace function public.replace_budget_data(
   p_months jsonb,
   p_expenses jsonb,
   p_income_records jsonb,
-  p_person_records jsonb
+  p_person_records jsonb,
+  p_recurring_fixed_expense_rules jsonb
 )
 returns void
 language plpgsql
@@ -127,6 +156,7 @@ begin
   delete from public.expenses where user_id = v_user_id;
   delete from public.income_records where user_id = v_user_id;
   delete from public.person_money_records where user_id = v_user_id;
+  delete from public.recurring_fixed_expense_rules where user_id = v_user_id;
 
   insert into public.month_incomes (user_id, month, income)
   select
@@ -135,7 +165,17 @@ begin
     (item.value ->> 'income')::integer
   from pg_catalog.jsonb_array_elements(p_months) as item(value);
 
-  insert into public.expenses (id, user_id, date, month, category_id, amount, memo, created_at)
+  insert into public.expenses (
+    id,
+    user_id,
+    date,
+    month,
+    category_id,
+    amount,
+    memo,
+    created_at,
+    recurring_rule_id
+  )
   select
     (item.value ->> 'id')::uuid,
     v_user_id,
@@ -144,7 +184,8 @@ begin
     item.value ->> 'category_id',
     (item.value ->> 'amount')::integer,
     item.value ->> 'memo',
-    coalesce((item.value ->> 'created_at')::timestamptz, (item.value ->> 'date')::timestamptz)
+    coalesce((item.value ->> 'created_at')::timestamptz, (item.value ->> 'date')::timestamptz),
+    (item.value ->> 'recurring_rule_id')::uuid
   from pg_catalog.jsonb_array_elements(p_expenses) as item(value);
 
   insert into public.income_records (id, user_id, date, month, category_id, amount, memo, created_at)
@@ -158,6 +199,35 @@ begin
     item.value ->> 'memo',
     coalesce((item.value ->> 'created_at')::timestamptz, (item.value ->> 'date')::timestamptz)
   from pg_catalog.jsonb_array_elements(p_income_records) as item(value);
+
+  insert into public.recurring_fixed_expense_rules (
+    id,
+    user_id,
+    day_of_month,
+    category_id,
+    amount,
+    memo,
+    active,
+    created_at,
+    updated_at
+  )
+  select
+    (item.value ->> 'id')::uuid,
+    v_user_id,
+    (item.value ->> 'day_of_month')::integer,
+    item.value ->> 'category_id',
+    (item.value ->> 'amount')::integer,
+    item.value ->> 'memo',
+    (item.value ->> 'active')::boolean,
+    case
+      when item.value ? 'created_at' then (item.value ->> 'created_at')::timestamptz
+      else now()
+    end,
+    case
+      when item.value ? 'updated_at' then (item.value ->> 'updated_at')::timestamptz
+      else now()
+    end
+  from pg_catalog.jsonb_array_elements(p_recurring_fixed_expense_rules) as item(value);
 
   insert into public.person_money_records (
     id,
@@ -182,9 +252,9 @@ begin
 end;
 $$;
 
-revoke all on public.month_incomes, public.expenses, public.income_records, public.person_money_records from anon;
-grant select, insert, update, delete on public.month_incomes, public.expenses, public.income_records, public.person_money_records to authenticated;
+revoke all on public.month_incomes, public.expenses, public.income_records, public.person_money_records, public.recurring_fixed_expense_rules from anon;
+grant select, insert, update, delete on public.month_incomes, public.expenses, public.income_records, public.person_money_records, public.recurring_fixed_expense_rules to authenticated;
 
-revoke all on function public.replace_budget_data(jsonb, jsonb, jsonb, jsonb) from public;
-revoke all on function public.replace_budget_data(jsonb, jsonb, jsonb, jsonb) from anon;
-grant execute on function public.replace_budget_data(jsonb, jsonb, jsonb, jsonb) to authenticated;
+revoke all on function public.replace_budget_data(jsonb, jsonb, jsonb, jsonb, jsonb) from public;
+revoke all on function public.replace_budget_data(jsonb, jsonb, jsonb, jsonb, jsonb) from anon;
+grant execute on function public.replace_budget_data(jsonb, jsonb, jsonb, jsonb, jsonb) to authenticated;
