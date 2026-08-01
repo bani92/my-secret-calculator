@@ -2,7 +2,14 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 
 import { createEmptyBudgetData } from '../domain/calculations';
-import type { BudgetData, Expense, IncomeRecord, MonthRecord, PersonMoneyRecord } from '../domain/types';
+import type {
+  BudgetData,
+  Expense,
+  IncomeRecord,
+  MonthRecord,
+  PersonMoneyRecord,
+  RecurringFixedExpenseRule
+} from '../domain/types';
 import type { BudgetRepository } from '../storage/budgetRepository';
 import { parseBudgetJson } from '../storage/exportImport';
 import { createBudgetStore, useBudgetStore } from './budgetStore';
@@ -20,6 +27,9 @@ class MemoryBudgetRepository implements BudgetRepository {
   updateIncomeRecordCount = 0;
   addPersonRecordCount = 0;
   setPersonRecordSettledCount = 0;
+  addRecurringFixedExpenseRuleCount = 0;
+  updateRecurringFixedExpenseRuleCount = 0;
+  deleteRecurringFixedExpenseRuleCount = 0;
   replaceAllCount = 0;
 
   constructor(private data: BudgetData = createEmptyBudgetData()) {}
@@ -89,6 +99,26 @@ class MemoryBudgetRepository implements BudgetRepository {
     if (record) {
       record.settled = settled;
     }
+    this.saveSnapshot();
+  }
+
+  async addRecurringFixedExpenseRule(rule: RecurringFixedExpenseRule): Promise<void> {
+    this.addRecurringFixedExpenseRuleCount += 1;
+    this.data.recurringFixedExpenseRules.push(structuredClone(rule));
+    this.saveSnapshot();
+  }
+
+  async updateRecurringFixedExpenseRule(nextRule: RecurringFixedExpenseRule): Promise<void> {
+    this.updateRecurringFixedExpenseRuleCount += 1;
+    this.data.recurringFixedExpenseRules = this.data.recurringFixedExpenseRules.map((rule) =>
+      rule.id === nextRule.id ? structuredClone(nextRule) : rule
+    );
+    this.saveSnapshot();
+  }
+
+  async deleteRecurringFixedExpenseRule(id: string): Promise<void> {
+    this.deleteRecurringFixedExpenseRuleCount += 1;
+    this.data.recurringFixedExpenseRules = this.data.recurringFixedExpenseRules.filter((rule) => rule.id !== id);
     this.saveSnapshot();
   }
 

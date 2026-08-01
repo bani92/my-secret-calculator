@@ -1,7 +1,14 @@
 import { describe, expect, test, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 
-import type { BudgetData, Expense, IncomeRecord, MonthRecord, PersonMoneyRecord } from '../domain/types';
+import type {
+  BudgetData,
+  Expense,
+  IncomeRecord,
+  MonthRecord,
+  PersonMoneyRecord,
+  RecurringFixedExpenseRule
+} from '../domain/types';
 import {
   SupabaseBudgetRepository,
   type SupabaseBudgetDataClient,
@@ -43,6 +50,17 @@ const personRecord: PersonMoneyRecord = {
   amount: 50_000,
   memo: '공연 티켓',
   settled: false
+};
+
+const recurringRule: RecurringFixedExpenseRule = {
+  id: 'rule-1',
+  dayOfMonth: 1,
+  categoryId: 'fixed',
+  amount: 10000,
+  memo: '?숈뼇?앸챸',
+  active: true,
+  createdAt: '2026-08-01T00:00:00.000Z',
+  updatedAt: '2026-08-25T00:00:00.000Z'
 };
 
 const replacement: BudgetData = {
@@ -176,6 +194,44 @@ describe('SupabaseBudgetRepository', () => {
     expect(fake.from).toHaveBeenCalledWith('person_money_records');
   });
 
+  test('loads recurring fixed expense rules and expense source links', async () => {
+    const fake = createClient([
+      success([]),
+      success([
+        {
+          id: expense.id,
+          date: expense.date,
+          month: expense.month,
+          category_id: expense.categoryId,
+          amount: expense.amount,
+          memo: expense.memo,
+          recurring_rule_id: 'rule-1'
+        }
+      ]),
+      success([]),
+      success([]),
+      success([
+        {
+          id: recurringRule.id,
+          day_of_month: recurringRule.dayOfMonth,
+          category_id: recurringRule.categoryId,
+          amount: recurringRule.amount,
+          memo: recurringRule.memo,
+          active: recurringRule.active,
+          created_at: recurringRule.createdAt,
+          updated_at: recurringRule.updatedAt
+        }
+      ])
+    ]);
+    const repository = new SupabaseBudgetRepository(() => fake.client);
+
+    const data = await repository.load();
+
+    expect(data.expenses[0].recurringRuleId).toBe('rule-1');
+    expect(data.recurringFixedExpenseRules[0]).toEqual(recurringRule);
+    expect(fake.from).toHaveBeenCalledWith('recurring_fixed_expense_rules');
+  });
+
   test('upserts a month income using the user-month conflict key', async () => {
     const fake = createClient([success()]);
     const repository = new SupabaseBudgetRepository(() => fake.client);
@@ -203,6 +259,24 @@ describe('SupabaseBudgetRepository', () => {
       amount: expense.amount,
       memo: expense.memo,
       created_at: expense.createdAt
+    });
+  });
+
+  test('inserts an expense source link when it came from a recurring rule', async () => {
+    const fake = createClient([success()]);
+    const repository = new SupabaseBudgetRepository(() => fake.client);
+
+    await repository.addExpense({ ...expense, recurringRuleId: recurringRule.id });
+
+    expect(fake.queriesFor('expenses')[0].insert).toHaveBeenCalledWith({
+      id: expense.id,
+      date: expense.date,
+      month: expense.month,
+      category_id: expense.categoryId,
+      amount: expense.amount,
+      memo: expense.memo,
+      created_at: expense.createdAt,
+      recurring_rule_id: recurringRule.id
     });
   });
 
@@ -324,6 +398,34 @@ describe('SupabaseBudgetRepository', () => {
     expect(query.eq).toHaveBeenCalledWith('id', personRecord.id);
   });
 
+  test('inserts, updates, and deletes recurring fixed expense rules', async () => {
+    const fake = createClient([success(), success(), success()]);
+    const repository = new SupabaseBudgetRepository(() => fake.client);
+
+    await repository.addRecurringFixedExpenseRule(recurringRule);
+    await repository.updateRecurringFixedExpenseRule({ ...recurringRule, amount: 20000, active: false });
+    await repository.deleteRecurringFixedExpenseRule(recurringRule.id);
+
+    expect(fake.queriesFor('recurring_fixed_expense_rules')[0].insert).toHaveBeenCalledWith({
+      id: 'rule-1',
+      day_of_month: 1,
+      category_id: 'fixed',
+      amount: 10000,
+      memo: '?숈뼇?앸챸',
+      active: true,
+      created_at: recurringRule.createdAt,
+      updated_at: recurringRule.updatedAt
+    });
+    expect(fake.queriesFor('recurring_fixed_expense_rules')[1].update).toHaveBeenCalledWith({
+      day_of_month: 1,
+      category_id: 'fixed',
+      amount: 20000,
+      memo: '?숈뼇?앸챸',
+      active: false
+    });
+    expect(fake.queriesFor('recurring_fixed_expense_rules')[2].delete).toHaveBeenCalledOnce();
+  });
+
   test('replaces all data with one transactional RPC and snake_case payloads', async () => {
     const fake = createClient();
     const repository = new SupabaseBudgetRepository(() => fake.client);
@@ -365,7 +467,8 @@ describe('SupabaseBudgetRepository', () => {
           memo: personRecord.memo,
           settled: personRecord.settled
         }
-      ]
+      ],
+      p_recurring_fixed_expense_rules: []
     });
     expect(fake.getUser).not.toHaveBeenCalled();
     expect(fake.from).not.toHaveBeenCalled();
@@ -381,6 +484,9 @@ describe('SupabaseBudgetRepository', () => {
       "coalesce((item.value ->> 'created_at')::timestamptz, (item.value ->> 'date')::timestamptz)"
     );
     expect(schema).not.toContain("coalesce((item.value ->> 'created_at')::timestamptz, now())");
+    expect(schema).toContain('create table public.recurring_fixed_expense_rules');
+    expect(schema).toContain('recurring_rule_id uuid');
+    expect(schema).toContain('p_recurring_fixed_expense_rules jsonb');
   });
 
   test.each([

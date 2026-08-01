@@ -6,12 +6,18 @@ import type {
   IncomeRecord,
   MonthRecord,
   PersonMoneyDirection,
-  PersonMoneyRecord
+  PersonMoneyRecord,
+  RecurringFixedExpenseRule
 } from '../domain/types';
 import { requireSupabaseClient } from '../lib/supabaseClient';
 import type { BudgetRepository } from './budgetRepository';
 
-type BudgetTable = 'month_incomes' | 'expenses' | 'income_records' | 'person_money_records';
+type BudgetTable =
+  | 'month_incomes'
+  | 'expenses'
+  | 'income_records'
+  | 'person_money_records'
+  | 'recurring_fixed_expense_rules';
 
 export interface SupabaseQueryResponse<T> {
   data: T | null;
@@ -33,6 +39,7 @@ interface ReplaceBudgetDataPayload {
   p_expenses: ExpenseRow[];
   p_income_records: IncomeRecordRow[];
   p_person_records: PersonMoneyRecordRow[];
+  p_recurring_fixed_expense_rules: RecurringFixedExpenseRuleRow[];
 }
 
 export interface SupabaseBudgetDataClient {
@@ -59,6 +66,7 @@ interface ExpenseRow {
   amount: number;
   memo: string;
   created_at?: string;
+  recurring_rule_id?: string;
 }
 
 interface IncomeRecordRow {
@@ -81,6 +89,17 @@ interface PersonMoneyRecordRow {
   settled: boolean;
 }
 
+interface RecurringFixedExpenseRuleRow {
+  id: string;
+  day_of_month: number;
+  category_id: CategoryId;
+  amount: number;
+  memo: string;
+  active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 const repositoryErrorMessage = 'Supabase 가계부 요청이 실패했습니다.';
 
 function ensureSuccess(response: SupabaseQueryResponse<unknown>): void {
@@ -101,7 +120,8 @@ function toExpenseRow(expense: Expense): ExpenseRow {
     category_id: expense.categoryId,
     amount: expense.amount,
     memo: expense.memo,
-    ...(expense.createdAt === undefined ? {} : { created_at: expense.createdAt })
+    ...(expense.createdAt === undefined ? {} : { created_at: expense.createdAt }),
+    ...(expense.recurringRuleId === undefined ? {} : { recurring_rule_id: expense.recurringRuleId })
   };
 }
 
@@ -129,6 +149,21 @@ function toPersonMoneyRecordRow(record: PersonMoneyRecord): PersonMoneyRecordRow
   };
 }
 
+function toRecurringFixedExpenseRuleRow(
+  rule: RecurringFixedExpenseRule
+): RecurringFixedExpenseRuleRow {
+  return {
+    id: rule.id,
+    day_of_month: rule.dayOfMonth,
+    category_id: rule.categoryId,
+    amount: rule.amount,
+    memo: rule.memo,
+    active: rule.active,
+    ...(rule.createdAt === undefined ? {} : { created_at: rule.createdAt }),
+    ...(rule.updatedAt === undefined ? {} : { updated_at: rule.updatedAt })
+  };
+}
+
 export class SupabaseBudgetRepository implements BudgetRepository {
   constructor(
     private readonly getClient: SupabaseBudgetClientFactory | SupabaseClientFactory = requireSupabaseClient
@@ -140,22 +175,25 @@ export class SupabaseBudgetRepository implements BudgetRepository {
 
   async load(): Promise<BudgetData> {
     const client = this.client();
-    const [monthResponse, expenseResponse, incomeRecordResponse, personResponse] = await Promise.all([
+    const [monthResponse, expenseResponse, incomeRecordResponse, personResponse, recurringRuleResponse] = await Promise.all([
       client.from('month_incomes').select(),
       client.from('expenses').select(),
       client.from('income_records').select(),
-      client.from('person_money_records').select()
+      client.from('person_money_records').select(),
+      client.from('recurring_fixed_expense_rules').select()
     ]);
 
     ensureSuccess(monthResponse);
     ensureSuccess(expenseResponse);
     ensureSuccess(incomeRecordResponse);
     ensureSuccess(personResponse);
+    ensureSuccess(recurringRuleResponse);
 
     const monthRows = rows<MonthIncomeRow>(monthResponse.data);
     const expenseRows = rows<ExpenseRow>(expenseResponse.data);
     const incomeRecordRows = rows<IncomeRecordRow>(incomeRecordResponse.data);
     const personRows = rows<PersonMoneyRecordRow>(personResponse.data);
+    const recurringRuleRows = rows<RecurringFixedExpenseRuleRow>(recurringRuleResponse.data);
 
     return {
       version: 1,
@@ -169,7 +207,8 @@ export class SupabaseBudgetRepository implements BudgetRepository {
         categoryId: row.category_id,
         amount: row.amount,
         memo: row.memo,
-        createdAt: row.created_at
+        createdAt: row.created_at,
+        recurringRuleId: row.recurring_rule_id
       })),
       incomeRecords: incomeRecordRows.map((row) => ({
         id: row.id,
@@ -180,7 +219,16 @@ export class SupabaseBudgetRepository implements BudgetRepository {
         memo: row.memo,
         createdAt: row.created_at
       })),
-      recurringFixedExpenseRules: [],
+      recurringFixedExpenseRules: recurringRuleRows.map((row) => ({
+        id: row.id,
+        dayOfMonth: row.day_of_month,
+        categoryId: row.category_id,
+        amount: row.amount,
+        memo: row.memo,
+        active: row.active,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      })),
       personRecords: personRows.map((row) => ({
         id: row.id,
         date: row.date,
@@ -272,6 +320,35 @@ export class SupabaseBudgetRepository implements BudgetRepository {
     ensureSuccess(response);
   }
 
+  async addRecurringFixedExpenseRule(rule: RecurringFixedExpenseRule): Promise<void> {
+    const response = await this.client()
+      .from('recurring_fixed_expense_rules')
+      .insert(toRecurringFixedExpenseRuleRow(rule));
+
+    ensureSuccess(response);
+  }
+
+  async updateRecurringFixedExpenseRule(rule: RecurringFixedExpenseRule): Promise<void> {
+    const response = await this.client()
+      .from('recurring_fixed_expense_rules')
+      .update({
+        day_of_month: rule.dayOfMonth,
+        category_id: rule.categoryId,
+        amount: rule.amount,
+        memo: rule.memo,
+        active: rule.active
+      })
+      .eq('id', rule.id);
+
+    ensureSuccess(response);
+  }
+
+  async deleteRecurringFixedExpenseRule(id: string): Promise<void> {
+    const response = await this.client().from('recurring_fixed_expense_rules').delete().eq('id', id);
+
+    ensureSuccess(response);
+  }
+
   async replaceAll(data: BudgetData): Promise<void> {
     const response = await this.client().rpc('replace_budget_data', {
       p_months: Object.values(data.months).map((record) => ({
@@ -280,7 +357,10 @@ export class SupabaseBudgetRepository implements BudgetRepository {
       })),
       p_expenses: data.expenses.map(toExpenseRow),
       p_income_records: data.incomeRecords.map(toIncomeRecordRow),
-      p_person_records: data.personRecords.map(toPersonMoneyRecordRow)
+      p_person_records: data.personRecords.map(toPersonMoneyRecordRow),
+      p_recurring_fixed_expense_rules: data.recurringFixedExpenseRules.map(
+        toRecurringFixedExpenseRuleRow
+      )
     });
 
     ensureSuccess(response);
