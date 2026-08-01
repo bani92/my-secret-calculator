@@ -26,6 +26,7 @@ const sampleBudgetData: BudgetData = {
     }
   ],
   incomeRecords: [],
+  recurringFixedExpenseRules: [],
   personRecords: [
     {
       id: 'person-1',

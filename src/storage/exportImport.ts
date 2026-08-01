@@ -66,6 +66,7 @@ function isRecurringFixedExpenseRule(value: unknown): value is BudgetData['recur
 
   return (
     typeof value.id === 'string' &&
+    typeof value.dayOfMonth === 'number' &&
     Number.isInteger(value.dayOfMonth) &&
     value.dayOfMonth >= 1 &&
     value.dayOfMonth <= 31 &&

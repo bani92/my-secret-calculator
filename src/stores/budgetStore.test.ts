@@ -118,6 +118,7 @@ class FlakyLoadBudgetRepository extends MemoryBudgetRepository {
       },
       expenses: [],
       incomeRecords: [],
+      recurringFixedExpenseRules: [],
       personRecords: []
     };
   }
@@ -207,6 +208,7 @@ describe('useBudgetStore', () => {
       },
       expenses: [],
       incomeRecords: [],
+      recurringFixedExpenseRules: [],
       personRecords: []
     };
     const { store } = createBudgetStoreForTest(new MemoryBudgetRepository(existingData));
@@ -538,6 +540,7 @@ describe('useBudgetStore', () => {
       },
       expenses: [],
       incomeRecords: [],
+      recurringFixedExpenseRules: [],
       personRecords: []
     };
     const { repository, store } = createBudgetStoreForTest(new MemoryBudgetRepository(existingData));
@@ -577,6 +580,7 @@ describe('useBudgetStore', () => {
       },
       expenses: [],
       incomeRecords: [],
+      recurringFixedExpenseRules: [],
       personRecords: []
     };
     const repository = new MemoryBudgetRepository(existingData);
@@ -1045,6 +1049,7 @@ describe('useBudgetStore', () => {
         }
       ],
       incomeRecords: [],
+      recurringFixedExpenseRules: [],
       personRecords: []
     };
     const importedBackup = JSON.stringify({

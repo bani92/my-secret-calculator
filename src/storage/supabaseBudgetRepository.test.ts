@@ -50,6 +50,7 @@ const replacement: BudgetData = {
   months: { [month.month]: month },
   expenses: [expense],
   incomeRecords: [incomeRecord],
+  recurringFixedExpenseRules: [],
   personRecords: [personRecord]
 };
 
