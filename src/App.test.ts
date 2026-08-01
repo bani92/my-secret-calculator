@@ -220,6 +220,55 @@ describe('App', () => {
     expect(mockedStores.budgetStore.initialize).toHaveBeenCalled();
   });
 
+  test('shows the recurring fixed expense tab', async () => {
+    const wrapper = await mountLoadedApp();
+
+    await wrapper.findAll('button').find((button) => button.text() === '고정비')?.trigger('click');
+
+    expect(wrapper.get('[aria-selected="true"]').text()).toBe('고정비');
+    expect(wrapper.text()).toContain('고정비 규칙 추가');
+  });
+
+  test('generates due recurring fixed expenses after loading budget data', async () => {
+    vi.setSystemTime(new Date('2026-08-01T09:00:00.000Z'));
+    budgetData.recurringFixedExpenseRules.push({
+      id: 'rule-1',
+      dayOfMonth: 1,
+      categoryId: 'fixed',
+      amount: 10_000,
+      memo: '통신비',
+      active: true
+    });
+
+    const wrapper = await mountLoadedApp();
+    await flushAsyncActions();
+
+    expect(mockedStores.budgetStore.data.expenses[0]).toMatchObject({
+      date: '2026-08-01',
+      amount: 10_000,
+      memo: '통신비',
+      recurringRuleId: 'rule-1'
+    });
+    expect(wrapper.text()).toContain('고정비 1건을 자동 생성했습니다.');
+  });
+
+  test('shows a status message when recurring fixed expense generation fails', async () => {
+    budgetData.recurringFixedExpenseRules.push({
+      id: 'rule-1',
+      dayOfMonth: 1,
+      categoryId: 'fixed',
+      amount: 10_000,
+      memo: '통신비',
+      active: true
+    });
+    budgetWritesShouldFail = true;
+
+    const wrapper = await mountLoadedApp();
+    await flushAsyncActions();
+
+    expect(wrapper.text()).toContain('고정비 자동 생성 중 일부 항목을 저장하지 못했습니다.');
+  });
+
   test('removes the budget UI when the authenticated session is cleared', async () => {
     const wrapper = await mountLoadedApp();
 

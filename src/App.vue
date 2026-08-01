@@ -54,6 +54,7 @@
         </nav>
 
         <LedgerTab v-if="activeTab === 'input'" :initial-expense-date="pendingExpenseDate" />
+        <RecurringFixedExpenseTab v-else-if="activeTab === 'recurring'" />
         <DashboardTab v-else-if="activeTab === 'dashboard'" />
         <StatisticsTab v-else-if="activeTab === 'statistics'" />
         <CalendarTab v-else-if="activeTab === 'calendar'" @select-date="selectCalendarDate" />
@@ -71,14 +72,16 @@ import DashboardTab from './components/DashboardTab.vue';
 import LedgerTab from './components/LedgerTab.vue';
 import LoginForm from './components/LoginForm.vue';
 import PersonMoneyTab from './components/PersonMoneyTab.vue';
+import RecurringFixedExpenseTab from './components/RecurringFixedExpenseTab.vue';
 import StatisticsTab from './components/StatisticsTab.vue';
 import { useAuthStore } from './stores/authStore';
 import { useBudgetStore } from './stores/budgetStore';
 
-type TabId = 'input' | 'dashboard' | 'statistics' | 'calendar' | 'people';
+type TabId = 'input' | 'recurring' | 'dashboard' | 'statistics' | 'calendar' | 'people';
 
 const tabs: Array<{ id: TabId; label: string }> = [
   { id: 'input', label: '입력' },
+  { id: 'recurring', label: '고정비' },
   { id: 'dashboard', label: '대시보드' },
   { id: 'statistics', label: '통계' },
   { id: 'calendar', label: '캘린더' },
@@ -123,17 +126,39 @@ async function initializeBudget(
     await store.initialize();
 
     if (version !== budgetSessionVersion || authStore.session?.user.id !== userId) {
-      store.reset();
-      const currentUserId = authStore.session?.user.id;
+      restartCurrentBudgetInitialization();
+      return;
+    }
 
-      if (currentUserId) {
-        void initializeBudget(budgetSessionVersion, currentUserId);
+    try {
+      const createdCount = await store.generateDueRecurringFixedExpenses();
+
+      if (version !== budgetSessionVersion || authStore.session?.user.id !== userId) {
+        restartCurrentBudgetInitialization();
+        return;
+      }
+
+      if (createdCount > 0) {
+        showStatus(`고정비 ${createdCount}건을 자동 생성했습니다.`);
+      }
+    } catch {
+      if (version === budgetSessionVersion && authStore.session?.user.id === userId) {
+        showStatus('고정비 자동 생성 중 일부 항목을 저장하지 못했습니다.');
       }
     }
   } catch {
     if (version === budgetSessionVersion && authStore.session?.user.id === userId) {
       showStatus('가계부를 불러오지 못했습니다.');
     }
+  }
+}
+
+function restartCurrentBudgetInitialization(): void {
+  store.reset();
+  const currentUserId = authStore.session?.user.id;
+
+  if (currentUserId) {
+    void initializeBudget(budgetSessionVersion, currentUserId);
   }
 }
 
