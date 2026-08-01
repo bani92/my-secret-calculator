@@ -214,6 +214,10 @@ select:focus-visible,
   flex-wrap: wrap;
 }
 
+.recurring-status-list .recurring-rule-item {
+  grid-template-columns: minmax(0, 1fr) minmax(72px, auto);
+}
+
 .calendar-toolbar {
   display: flex;
   align-items: end;
