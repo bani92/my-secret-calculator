@@ -9,9 +9,18 @@ import {
   calculateYearlyExpenseStats,
   createEmptyBudgetData,
   getCurrentMonth,
+  getRecurringFixedExpenseStatuses as calculateRecurringFixedExpenseStatuses,
   toMonth
 } from '../domain/calculations';
-import type { BudgetData, CategoryId, Expense, IncomeCategoryId, IncomeRecord, PersonMoneyDirection } from '../domain/types';
+import type {
+  BudgetData,
+  CategoryId,
+  Expense,
+  IncomeCategoryId,
+  IncomeRecord,
+  PersonMoneyDirection,
+  RecurringFixedExpenseRule
+} from '../domain/types';
 import type { BudgetRepository } from '../storage/budgetRepository';
 import { parseBudgetJson, stringifyBudgetData } from '../storage/exportImport';
 import { requireSupabaseClient } from '../lib/supabaseClient';
@@ -63,6 +72,35 @@ const isValidDate = (date: string): boolean => {
 
   return !Number.isNaN(parsedDate.getTime()) && parsedDate.toISOString().slice(0, 10) === date;
 };
+
+const validateRecurringFixedExpenseRulePayload = (payload: {
+  dayOfMonth: number;
+  amount: number;
+  memo: string;
+}): void => {
+  if (!Number.isInteger(payload.dayOfMonth) || payload.dayOfMonth < 1 || payload.dayOfMonth > 31) {
+    throw new Error('반복일은 1일부터 31일 사이여야 합니다.');
+  }
+
+  if (!Number.isFinite(payload.amount) || payload.amount <= 0) {
+    throw new Error('고정비 금액은 0원보다 커야 합니다.');
+  }
+
+  if (payload.memo.trim().length === 0) {
+    throw new Error('고정비 항목명을 입력해주세요.');
+  }
+};
+
+function daysInMonth(month: string): number {
+  const year = Number(month.slice(0, 4));
+  const monthNumber = Number(month.slice(5, 7));
+
+  return new Date(year, monthNumber, 0).getDate();
+}
+
+function dateForRule(month: string, dayOfMonth: number): string {
+  return `${month}-${String(dayOfMonth).padStart(2, '0')}`;
+}
 
 export function createBudgetStore(repository: BudgetRepository) {
   return defineStore('budget', () => {
@@ -161,6 +199,7 @@ export function createBudgetStore(repository: BudgetRepository) {
       categoryId: CategoryId;
       amount: number;
       memo: string;
+      recurringRuleId?: string;
     }): Promise<void> => {
       await ensureInitialized();
       const nextData = cloneBudgetData(data.value);
@@ -171,7 +210,8 @@ export function createBudgetStore(repository: BudgetRepository) {
         month: toMonth(payload.date),
         categoryId: payload.categoryId,
         amount: payload.amount,
-        memo: payload.memo.trim()
+        memo: payload.memo.trim(),
+        recurringRuleId: payload.recurringRuleId
       };
       nextData.expenses.push(nextExpense);
       const validatedData = cloneBudgetData(nextData);
@@ -301,6 +341,106 @@ export function createBudgetStore(repository: BudgetRepository) {
       data.value.incomeRecords = nextRecords;
     };
 
+    const addRecurringFixedExpenseRule = async (payload: {
+      dayOfMonth: number;
+      categoryId: CategoryId;
+      amount: number;
+      memo: string;
+      active: boolean;
+    }): Promise<void> => {
+      await ensureInitialized();
+      validateRecurringFixedExpenseRulePayload(payload);
+      const now = new Date().toISOString();
+      const rule: RecurringFixedExpenseRule = {
+        id: newId(),
+        dayOfMonth: payload.dayOfMonth,
+        categoryId: payload.categoryId,
+        amount: payload.amount,
+        memo: payload.memo.trim(),
+        active: payload.active,
+        createdAt: now,
+        updatedAt: now
+      };
+
+      await repository.addRecurringFixedExpenseRule(rule);
+      data.value.recurringFixedExpenseRules.push(rule);
+    };
+
+    const updateRecurringFixedExpenseRule = async (payload: {
+      id: string;
+      dayOfMonth: number;
+      categoryId: CategoryId;
+      amount: number;
+      memo: string;
+      active: boolean;
+    }): Promise<void> => {
+      await ensureInitialized();
+      validateRecurringFixedExpenseRulePayload(payload);
+      const existing = data.value.recurringFixedExpenseRules.find((rule) => rule.id === payload.id);
+
+      if (!existing) {
+        return;
+      }
+
+      const nextRule: RecurringFixedExpenseRule = {
+        ...existing,
+        dayOfMonth: payload.dayOfMonth,
+        categoryId: payload.categoryId,
+        amount: payload.amount,
+        memo: payload.memo.trim(),
+        active: payload.active,
+        updatedAt: new Date().toISOString()
+      };
+
+      await repository.updateRecurringFixedExpenseRule(nextRule);
+      data.value.recurringFixedExpenseRules = data.value.recurringFixedExpenseRules.map((rule) =>
+        rule.id === nextRule.id ? nextRule : rule
+      );
+    };
+
+    const deleteRecurringFixedExpenseRule = async (id: string): Promise<void> => {
+      await ensureInitialized();
+
+      await repository.deleteRecurringFixedExpenseRule(id);
+      data.value.recurringFixedExpenseRules = data.value.recurringFixedExpenseRules.filter((rule) => rule.id !== id);
+    };
+
+    const generateDueRecurringFixedExpenses = async (today = new Date()): Promise<number> => {
+      await ensureInitialized();
+      const todayIso = today.toISOString().slice(0, 10);
+      const currentMonth = toMonth(todayIso);
+      const todayDay = Number(todayIso.slice(8, 10));
+      let createdCount = 0;
+
+      for (const rule of data.value.recurringFixedExpenseRules) {
+        if (!rule.active || rule.dayOfMonth > todayDay || rule.dayOfMonth > daysInMonth(currentMonth)) {
+          continue;
+        }
+
+        const alreadyExists = data.value.expenses.some(
+          (expense) => expense.recurringRuleId === rule.id && expense.month === currentMonth
+        );
+
+        if (alreadyExists) {
+          continue;
+        }
+
+        await addExpense({
+          date: dateForRule(currentMonth, rule.dayOfMonth),
+          categoryId: rule.categoryId,
+          amount: rule.amount,
+          memo: rule.memo,
+          recurringRuleId: rule.id
+        });
+        createdCount += 1;
+      }
+
+      return createdCount;
+    };
+
+    const getRecurringFixedExpenseStatuses = (month: string, _today = new Date()) =>
+      calculateRecurringFixedExpenseStatuses(month, data.value.recurringFixedExpenseRules, data.value.expenses);
+
     const getMonthlyExpenseStats = (year: string) => calculateMonthlyExpenseStats(year, data.value.expenses);
 
     const addPersonRecord = async (payload: {
@@ -393,6 +533,11 @@ export function createBudgetStore(repository: BudgetRepository) {
       addIncomeRecord,
       updateIncomeRecord,
       deleteIncomeRecord,
+      addRecurringFixedExpenseRule,
+      updateRecurringFixedExpenseRule,
+      deleteRecurringFixedExpenseRule,
+      generateDueRecurringFixedExpenses,
+      getRecurringFixedExpenseStatuses,
       getMonthSummary,
       getMonthlyExpenseStats,
       addPersonRecord,

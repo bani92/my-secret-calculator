@@ -1,4 +1,13 @@
-import type { BudgetData, CategoryId, Expense, IncomeCategoryId, IncomeRecord, MonthRecord, PersonMoneyRecord } from './types';
+import type {
+  BudgetData,
+  CategoryId,
+  Expense,
+  IncomeCategoryId,
+  IncomeRecord,
+  MonthRecord,
+  PersonMoneyRecord,
+  RecurringFixedExpenseRule
+} from './types';
 
 export type CategoryTotals = Partial<Record<CategoryId, number>>;
 
@@ -24,6 +33,12 @@ export interface MonthlyExpenseStat {
   month: string;
   label: string;
   total: number;
+}
+
+export interface RecurringFixedExpenseStatus {
+  ruleId: string;
+  label: string;
+  state: 'created' | 'scheduled';
 }
 
 export type LedgerEntry =
@@ -193,6 +208,22 @@ export function getCurrentMonth(date = new Date()): string {
 
 export function toMonth(date: string): string {
   return date.slice(0, 7);
+}
+
+export function getRecurringFixedExpenseStatuses(
+  month: string,
+  rules: RecurringFixedExpenseRule[],
+  expenses: Expense[]
+): RecurringFixedExpenseStatus[] {
+  const monthNumber = Number(month.slice(5, 7));
+
+  return rules.map((rule) => ({
+    ruleId: rule.id,
+    label: `${monthNumber}월 ${rule.dayOfMonth}일 ${rule.memo}`,
+    state: expenses.some((expense) => expense.recurringRuleId === rule.id && expense.month === month)
+      ? 'created'
+      : 'scheduled'
+  }));
 }
 
 export function calculateYearlyExpenseStats(expenses: Expense[]): YearlyExpenseStat[] {

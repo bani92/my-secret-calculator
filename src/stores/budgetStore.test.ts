@@ -646,6 +646,126 @@ describe('useBudgetStore', () => {
     expect(store.data.months['2026-06']).toBeUndefined();
   });
 
+  test('adds, updates, deactivates, and deletes recurring fixed expense rules', async () => {
+    vi.setSystemTime(new Date('2026-08-01T09:00:00.000Z'));
+    const { repository, store } = createBudgetStoreForTest();
+
+    await store.initialize();
+    await store.addRecurringFixedExpenseRule({
+      dayOfMonth: 1,
+      categoryId: 'fixed',
+      amount: 10_000,
+      memo: ' 동양생명 ',
+      active: true
+    });
+
+    expect(store.data.recurringFixedExpenseRules[0]).toMatchObject({
+      id: '00000000-0000-4000-8000-000000000001',
+      dayOfMonth: 1,
+      categoryId: 'fixed',
+      amount: 10_000,
+      memo: '동양생명',
+      active: true,
+      createdAt: '2026-08-01T09:00:00.000Z',
+      updatedAt: '2026-08-01T09:00:00.000Z'
+    });
+    expect(repository.addRecurringFixedExpenseRuleCount).toBe(1);
+
+    await store.updateRecurringFixedExpenseRule({
+      id: '00000000-0000-4000-8000-000000000001',
+      dayOfMonth: 1,
+      categoryId: 'fixed',
+      amount: 20_000,
+      memo: '동양생명',
+      active: false
+    });
+
+    expect(store.data.recurringFixedExpenseRules[0]).toMatchObject({ amount: 20_000, active: false });
+    expect(repository.updateRecurringFixedExpenseRuleCount).toBe(1);
+
+    await store.deleteRecurringFixedExpenseRule('00000000-0000-4000-8000-000000000001');
+
+    expect(store.data.recurringFixedExpenseRules).toEqual([]);
+    expect(repository.deleteRecurringFixedExpenseRuleCount).toBe(1);
+  });
+
+  test('generates due recurring fixed expenses for the current month without duplicates', async () => {
+    const repository = new MemoryBudgetRepository({
+      ...createEmptyBudgetData(),
+      recurringFixedExpenseRules: [
+        { id: 'rule-1', dayOfMonth: 1, categoryId: 'fixed', amount: 10_000, memo: '동양생명', active: true },
+        { id: 'rule-2', dayOfMonth: 5, categoryId: 'fixed', amount: 30_000, memo: '자동차보험', active: true }
+      ]
+    });
+    const { store } = createBudgetStoreForTest(repository);
+
+    await store.initialize();
+    const createdCount = await store.generateDueRecurringFixedExpenses(new Date('2026-08-02T09:00:00.000Z'));
+    const secondCount = await store.generateDueRecurringFixedExpenses(new Date('2026-08-02T09:00:00.000Z'));
+
+    expect(createdCount).toBe(1);
+    expect(secondCount).toBe(0);
+    expect(store.data.expenses).toHaveLength(1);
+    expect(store.data.expenses[0]).toMatchObject({
+      date: '2026-08-01',
+      month: '2026-08',
+      categoryId: 'fixed',
+      amount: 10_000,
+      memo: '동양생명',
+      recurringRuleId: 'rule-1'
+    });
+  });
+
+  test('uses the updated rule amount next month without changing the previous generated expense', async () => {
+    const repository = new MemoryBudgetRepository({
+      ...createEmptyBudgetData(),
+      recurringFixedExpenseRules: [
+        { id: 'rule-1', dayOfMonth: 1, categoryId: 'fixed', amount: 10_000, memo: '동양생명', active: true }
+      ]
+    });
+    const { store } = createBudgetStoreForTest(repository);
+
+    await store.initialize();
+    await store.generateDueRecurringFixedExpenses(new Date('2026-08-01T09:00:00.000Z'));
+    await store.updateRecurringFixedExpenseRule({
+      id: 'rule-1',
+      dayOfMonth: 1,
+      categoryId: 'fixed',
+      amount: 20_000,
+      memo: '동양생명',
+      active: true
+    });
+    await store.generateDueRecurringFixedExpenses(new Date('2026-09-01T09:00:00.000Z'));
+
+    expect(store.data.expenses.map((expense) => [expense.month, expense.amount])).toEqual([
+      ['2026-08', 10_000],
+      ['2026-09', 20_000]
+    ]);
+  });
+
+  test('skips days that do not exist in the current month and reports created and scheduled statuses', async () => {
+    const repository = new MemoryBudgetRepository({
+      ...createEmptyBudgetData(),
+      recurringFixedExpenseRules: [
+        { id: 'rule-28', dayOfMonth: 28, categoryId: 'fixed', amount: 10_000, memo: '월말', active: true },
+        { id: 'rule-29', dayOfMonth: 29, categoryId: 'fixed', amount: 20_000, memo: '윤년', active: true },
+        { id: 'rule-31', dayOfMonth: 31, categoryId: 'fixed', amount: 30_000, memo: '말일', active: true }
+      ]
+    });
+    const { store } = createBudgetStoreForTest(repository);
+
+    await store.initialize();
+    const createdCount = await store.generateDueRecurringFixedExpenses(new Date('2026-02-28T09:00:00.000Z'));
+
+    expect(createdCount).toBe(1);
+    expect(store.data.expenses).toMatchObject([{ date: '2026-02-28', recurringRuleId: 'rule-28' }]);
+    expect(store.getRecurringFixedExpenseStatuses('2026-02', new Date('2026-02-28T09:00:00.000Z'))).toEqual([
+      { ruleId: 'rule-28', label: '2월 28일 월말', state: 'created' },
+      { ruleId: 'rule-29', label: '2월 29일 윤년', state: 'scheduled' },
+      { ruleId: 'rule-31', label: '2월 31일 말일', state: 'scheduled' }
+    ]);
+  });
+
   test('adds, lists, summarizes, and deletes expenses for the selected month', async () => {
     const { repository, store } = createBudgetStoreForTest();
     await store.initialize();
