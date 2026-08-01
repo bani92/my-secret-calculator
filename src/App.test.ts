@@ -121,6 +121,8 @@ async function flushAsyncActions(): Promise<void> {
 
 describe('App', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-18T09:00:00.000Z'));
     setActivePinia(createPinia());
     budgetData = createEmptyBudgetData();
     budgetWritesShouldFail = false;
