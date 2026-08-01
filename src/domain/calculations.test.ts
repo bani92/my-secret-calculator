@@ -333,7 +333,8 @@ describe('budget domain model', () => {
       months: {},
       expenses: [],
       incomeRecords: [],
-      personRecords: []
+      personRecords: [],
+      recurringFixedExpenseRules: []
     });
   });
 
