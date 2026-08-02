@@ -222,7 +222,7 @@ export class SupabaseBudgetRepository implements BudgetRepository {
         amount: row.amount,
         memo: row.memo,
         createdAt: row.created_at,
-        recurringRuleId: row.recurring_rule_id
+        recurringRuleId: row.recurring_rule_id ?? undefined
       })),
       incomeRecords: incomeRecordRows.map((row) => ({
         id: row.id,

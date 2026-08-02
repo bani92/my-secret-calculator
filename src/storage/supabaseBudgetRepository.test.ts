@@ -232,6 +232,31 @@ describe('SupabaseBudgetRepository', () => {
     expect(fake.from).toHaveBeenCalledWith('recurring_fixed_expense_rules');
   });
 
+  test('normalizes null recurring expense source links from manual expense rows', async () => {
+    const fake = createClient([
+      success([]),
+      success([
+        {
+          id: expense.id,
+          date: expense.date,
+          month: expense.month,
+          category_id: expense.categoryId,
+          amount: expense.amount,
+          memo: expense.memo,
+          recurring_rule_id: null
+        }
+      ]),
+      success([]),
+      success([]),
+      success([])
+    ]);
+    const repository = new SupabaseBudgetRepository(() => fake.client);
+
+    const data = await repository.load();
+
+    expect(data.expenses[0].recurringRuleId).toBeUndefined();
+  });
+
   test('upserts a month income using the user-month conflict key', async () => {
     const fake = createClient([success()]);
     const repository = new SupabaseBudgetRepository(() => fake.client);
