@@ -742,11 +742,13 @@ describe('useBudgetStore', () => {
       ]
     });
     const { store } = createBudgetStoreForTest(repository);
+    const localAugustFirst = new Date('2026-07-31T15:30:00.000Z');
+    vi.spyOn(localAugustFirst, 'getFullYear').mockReturnValue(2026);
+    vi.spyOn(localAugustFirst, 'getMonth').mockReturnValue(7);
+    vi.spyOn(localAugustFirst, 'getDate').mockReturnValue(1);
 
     await store.initialize();
-    const createdCount = await store.generateDueRecurringFixedExpenses(
-      new Date('2026-07-31T15:30:00.000Z')
-    );
+    const createdCount = await store.generateDueRecurringFixedExpenses(localAugustFirst);
 
     expect(createdCount).toBe(1);
     expect(store.data.expenses).toMatchObject([
