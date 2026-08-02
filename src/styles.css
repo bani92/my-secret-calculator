@@ -687,6 +687,12 @@ select:focus-visible,
   justify-content: flex-end;
 }
 
+.dialog-actions .dialog-action-button {
+  flex: 0 0 96px;
+  min-width: 0;
+  padding: 0 var(--space-3);
+}
+
 .dialog-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -695,6 +701,26 @@ select:focus-visible,
 
 .dialog-form-grid .wide {
   grid-column: 1 / -1;
+}
+
+.dialog-form-grid .checkbox-field {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 44px;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text);
+}
+
+.dialog-form-grid .checkbox-field input[type='checkbox'] {
+  flex: 0 0 1rem;
+  width: 1rem;
+  min-height: 1rem;
+  height: 1rem;
+  align-self: center;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--color-primary);
 }
 
 label {
@@ -1016,6 +1042,10 @@ hr {
   .income-heading-actions,
   .dialog-actions {
     justify-content: flex-start;
+  }
+
+  .dialog-actions .dialog-action-button {
+    flex: 1 1 0;
   }
 
   .dialog-summary-list div {

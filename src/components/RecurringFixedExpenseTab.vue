@@ -68,7 +68,9 @@
         <div class="dialog-form-grid">
           <label>
             반복일
-            <input v-model.number="ruleForm.dayOfMonth" data-testid="recurring-rule-day" type="number" min="1" max="31" required />
+            <select v-model.number="ruleForm.dayOfMonth" data-testid="recurring-rule-day" required>
+              <option v-for="day in recurringDays" :key="day" :value="day">{{ day }}일</option>
+            </select>
           </label>
           <label>
             분류
@@ -91,14 +93,14 @@
             메모
             <input v-model="ruleForm.memo" data-testid="recurring-rule-memo" type="text" required />
           </label>
-          <label class="wide">
+          <label class="wide checkbox-field" data-testid="recurring-rule-active">
             <input v-model="ruleForm.active" type="checkbox" />
-            사용
+            <span>사용</span>
           </label>
         </div>
         <div class="dialog-actions">
-          <button type="button" class="secondary-button" @click="closeDialog">취소</button>
-          <button type="button" class="primary-button" data-testid="save-recurring-rule" @click="saveRule">저장</button>
+          <button type="button" class="secondary-button dialog-action-button" data-testid="cancel-recurring-rule" @click="closeDialog">취소</button>
+          <button type="button" class="primary-button dialog-action-button" data-testid="save-recurring-rule" @click="saveRule">저장</button>
         </div>
       </section>
     </div>
@@ -117,6 +119,7 @@ import { formatMoneyInput, parseMoneyInput } from '../utils/money';
 const store = useBudgetStore();
 const currentMonth = getCurrentMonth();
 const recurringStatuses = computed(() => store.getRecurringFixedExpenseStatuses(currentMonth));
+const recurringDays = Array.from({ length: 31 }, (_, index) => index + 1);
 const dialogOpen = ref(false);
 const ruleForm = reactive({
   dayOfMonth: 1,

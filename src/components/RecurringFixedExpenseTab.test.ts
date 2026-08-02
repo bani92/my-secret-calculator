@@ -61,6 +61,24 @@ describe('RecurringFixedExpenseTab', () => {
     });
   });
 
+  test('uses compact dialog controls for recurring day, active state, and actions', async () => {
+    const wrapper = mount(RecurringFixedExpenseTab);
+
+    await wrapper.get('[data-testid="open-recurring-rule-add"]').trigger('click');
+
+    const dayControl = wrapper.get('[data-testid="recurring-rule-day"]');
+    expect(dayControl.element.tagName).toBe('SELECT');
+    expect(dayControl.findAll('option').map((option) => option.text()).slice(0, 3)).toEqual([
+      '1일',
+      '2일',
+      '3일'
+    ]);
+    expect(dayControl.findAll('option')[14].text()).toBe('15일');
+    expect(wrapper.get('[data-testid="recurring-rule-active"]').classes()).toContain('checkbox-field');
+    expect(wrapper.get('[data-testid="cancel-recurring-rule"]').classes()).toContain('dialog-action-button');
+    expect(wrapper.get('[data-testid="save-recurring-rule"]').classes()).toContain('dialog-action-button');
+  });
+
   test('updates and deletes an existing recurring fixed expense rule', async () => {
     const wrapper = mount(RecurringFixedExpenseTab);
 

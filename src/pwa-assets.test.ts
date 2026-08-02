@@ -11,7 +11,7 @@ describe('PWA install assets', () => {
     const manifest = JSON.parse(manifestText);
 
     expect(manifest).toMatchObject({
-      name: '로컬 가계부',
+      name: '세반이네 가계부',
       short_name: '가계부',
       start_url: '/',
       display: 'standalone',
@@ -49,5 +49,6 @@ describe('PWA install assets', () => {
   test('index advertises the manifest and matching theme color', () => {
     expect(index).toContain('<link rel="manifest" href="/manifest.webmanifest" />');
     expect(index).toContain('<meta name="theme-color" content="#2864a6" />');
+    expect(index).toContain('<title>세반이네 가계부</title>');
   });
 });

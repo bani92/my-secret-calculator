@@ -221,6 +221,14 @@ describe('App', () => {
     expect(mockedStores.budgetStore.initialize).toHaveBeenCalled();
   });
 
+  test('shows the household budget title without the personal-use label', async () => {
+    const wrapper = await mountLoadedApp();
+
+    expect(wrapper.get('.app-header h1').text()).toBe('세반이네 가계부');
+    expect(wrapper.text()).not.toContain('개인 기록용');
+    expect(wrapper.text()).not.toContain('로컬 가계부');
+  });
+
   test('shows the recurring fixed expense tab', async () => {
     const wrapper = await mountLoadedApp();
 

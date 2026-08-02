@@ -14,8 +14,7 @@
     <template v-else>
       <header class="app-header">
         <div>
-          <p class="eyebrow">개인 기록용</p>
-          <h1>로컬 가계부</h1>
+          <h1>세반이네 가계부</h1>
         </div>
         <div class="backup-actions">
           <template v-if="store.isLoaded">
