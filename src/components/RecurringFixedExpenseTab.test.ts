@@ -42,6 +42,22 @@ describe('RecurringFixedExpenseTab', () => {
     expect(wrapper.text()).toContain('예정');
   });
 
+  test('sorts recurring fixed expense rules by recurring day', () => {
+    mockedStore.store.data.recurringFixedExpenseRules = [
+      { id: 'rule-25', dayOfMonth: 25, categoryId: 'fixed', amount: 25000, memo: '25일 비용', active: true },
+      { id: 'rule-1', dayOfMonth: 1, categoryId: 'fixed', amount: 10000, memo: '1일 비용', active: true },
+      { id: 'rule-10', dayOfMonth: 10, categoryId: 'fixed', amount: 100000, memo: '10일 비용', active: true }
+    ];
+
+    const wrapper = mount(RecurringFixedExpenseTab);
+
+    expect(wrapper.findAll('.recurring-rule-list .recurring-rule-item').map((item) => item.find('strong').text())).toEqual([
+      '1일',
+      '10일',
+      '25일'
+    ]);
+  });
+
   test('adds a recurring fixed expense rule from the dialog', async () => {
     const wrapper = mount(RecurringFixedExpenseTab);
 

@@ -8,9 +8,10 @@ import {
   calculateYearlyExpenseStats,
   createEmptyBudgetData,
   getCurrentMonth,
+  getRecurringFixedExpenseStatuses,
   toMonth
 } from './calculations';
-import type { BudgetData, CategoryId, Expense, IncomeRecord, MonthRecord, PersonMoneyRecord } from './types';
+import type { BudgetData, CategoryId, Expense, IncomeRecord, MonthRecord, PersonMoneyRecord, RecurringFixedExpenseRule } from './types';
 
 describe('budget domain model', () => {
   it('defines the required Korean category labels in order', () => {
@@ -258,6 +259,31 @@ describe('budget domain model', () => {
       { month: '2026-10', label: '10월', total: 0 },
       { month: '2026-11', label: '11월', total: 0 },
       { month: '2026-12', label: '12월', total: 0 }
+    ]);
+  });
+
+  it('sorts recurring fixed expense statuses by recurring day', () => {
+    const rules: RecurringFixedExpenseRule[] = [
+      { id: 'rule-25', dayOfMonth: 25, categoryId: 'fixed', amount: 25_000, memo: '25일 비용', active: true },
+      { id: 'rule-1', dayOfMonth: 1, categoryId: 'fixed', amount: 10_000, memo: '1일 비용', active: true },
+      { id: 'rule-10', dayOfMonth: 10, categoryId: 'fixed', amount: 100_000, memo: '10일 비용', active: true }
+    ];
+    const expenses: Expense[] = [
+      {
+        id: 'expense-1',
+        date: '2026-08-01',
+        month: '2026-08',
+        categoryId: 'fixed',
+        amount: 10_000,
+        memo: '',
+        recurringRuleId: 'rule-1'
+      }
+    ];
+
+    expect(getRecurringFixedExpenseStatuses('2026-08', rules, expenses)).toEqual([
+      { ruleId: 'rule-1', label: '8월 1일 1일 비용', state: 'created' },
+      { ruleId: 'rule-10', label: '8월 10일 10일 비용', state: 'scheduled' },
+      { ruleId: 'rule-25', label: '8월 25일 25일 비용', state: 'scheduled' }
     ]);
   });
 

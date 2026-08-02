@@ -217,13 +217,16 @@ export function getRecurringFixedExpenseStatuses(
 ): RecurringFixedExpenseStatus[] {
   const monthNumber = Number(month.slice(5, 7));
 
-  return rules.map((rule) => ({
-    ruleId: rule.id,
-    label: `${monthNumber}월 ${rule.dayOfMonth}일 ${rule.memo}`,
-    state: expenses.some((expense) => expense.recurringRuleId === rule.id && expense.month === month)
-      ? 'created'
-      : 'scheduled'
-  }));
+  return rules
+    .map((rule, index) => ({ rule, index }))
+    .sort((left, right) => left.rule.dayOfMonth - right.rule.dayOfMonth || left.index - right.index)
+    .map(({ rule }) => ({
+      ruleId: rule.id,
+      label: `${monthNumber}월 ${rule.dayOfMonth}일 ${rule.memo}`,
+      state: expenses.some((expense) => expense.recurringRuleId === rule.id && expense.month === month)
+        ? 'created'
+        : 'scheduled'
+    }));
 }
 
 export function calculateYearlyExpenseStats(expenses: Expense[]): YearlyExpenseStat[] {

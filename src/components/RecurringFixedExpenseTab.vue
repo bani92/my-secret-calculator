@@ -13,9 +13,9 @@
         </div>
       </div>
 
-      <p v-if="store.data.recurringFixedExpenseRules.length === 0" class="empty-copy">등록된 고정비 규칙이 없습니다.</p>
+      <p v-if="sortedRecurringRules.length === 0" class="empty-copy">등록된 고정비 규칙이 없습니다.</p>
       <ul v-else class="recurring-rule-list">
-        <li v-for="rule in store.data.recurringFixedExpenseRules" :key="rule.id" class="recurring-rule-item">
+        <li v-for="rule in sortedRecurringRules" :key="rule.id" class="recurring-rule-item">
           <strong>{{ rule.dayOfMonth }}일</strong>
           <div class="recurring-rule-main">
             <strong>{{ rule.memo }}</strong>
@@ -119,6 +119,12 @@ import { formatMoneyInput, parseMoneyInput } from '../utils/money';
 const store = useBudgetStore();
 const currentMonth = getCurrentMonth();
 const recurringStatuses = computed(() => store.getRecurringFixedExpenseStatuses(currentMonth));
+const sortedRecurringRules = computed(() =>
+  store.data.recurringFixedExpenseRules
+    .map((rule, index) => ({ rule, index }))
+    .sort((left, right) => left.rule.dayOfMonth - right.rule.dayOfMonth || left.index - right.index)
+    .map(({ rule }) => rule)
+);
 const recurringDays = Array.from({ length: 31 }, (_, index) => index + 1);
 const dialogOpen = ref(false);
 const ruleForm = reactive({
