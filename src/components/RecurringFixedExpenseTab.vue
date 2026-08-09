@@ -1,16 +1,21 @@
 <template>
   <section class="recurring-layout">
     <section class="panel">
-      <div class="section-heading income-heading">
-        <div>
+      <div class="section-heading recurring-heading">
+        <div class="recurring-heading-title">
           <span>반복 고정비</span>
-          <h2>고정비 규칙</h2>
-        </div>
-        <div class="income-heading-actions recurring-heading-actions">
-          <span class="recurring-rule-total" data-testid="recurring-rule-total">합계 {{ formatWon(activeRecurringTotal) }}</span>
-          <button type="button" class="primary-button" data-testid="open-recurring-rule-add" @click="openAddDialog">
-            추가
-          </button>
+          <div class="recurring-heading-row">
+            <h2>고정비 규칙</h2>
+            <div class="recurring-heading-actions">
+              <span class="recurring-rule-total" data-testid="recurring-rule-total">
+                <span class="recurring-rule-total-label">합계</span>
+                <span class="recurring-rule-total-amount">{{ formatWon(activeRecurringTotal) }}</span>
+              </span>
+              <button type="button" class="primary-button" data-testid="open-recurring-rule-add" @click="openAddDialog">
+                추가
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -54,7 +54,21 @@ describe('RecurringFixedExpenseTab', () => {
 
     const wrapper = mount(RecurringFixedExpenseTab);
 
-    expect(wrapper.get('[data-testid="recurring-rule-total"]').text()).toBe('합계 40,000원');
+    expect(wrapper.get('[data-testid="recurring-rule-total"]').text()).toBe('합계40,000원');
+    expect(wrapper.get('.recurring-rule-total-label').text()).toBe('합계');
+    expect(wrapper.get('.recurring-rule-total-amount').text()).toBe('40,000원');
+  });
+
+  test('uses dedicated header hooks for single-line title and right-aligned actions', () => {
+    const wrapper = mount(RecurringFixedExpenseTab);
+    const heading = wrapper.get('.recurring-heading');
+    const actions = wrapper.get('.recurring-heading-actions');
+
+    expect(heading.classes()).not.toContain('income-heading');
+    expect(actions.classes()).not.toContain('income-heading-actions');
+    expect(wrapper.get('.recurring-heading-row h2').text()).toBe('고정비 규칙');
+    expect(wrapper.get('.recurring-heading-row .recurring-heading-actions').find('[data-testid="recurring-rule-total"]').exists()).toBe(true);
+    expect(wrapper.get('.recurring-heading-row .recurring-heading-actions').find('[data-testid="open-recurring-rule-add"]').exists()).toBe(true);
   });
 
   test('sorts recurring fixed expense rules by recurring day', () => {

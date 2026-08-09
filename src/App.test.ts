@@ -236,7 +236,8 @@ describe('App', () => {
 
     expect(wrapper.get('[aria-selected="true"]').text()).toBe('고정비');
     expect(wrapper.text()).toContain('고정비 규칙');
-    expect(wrapper.get('[data-testid="recurring-rule-total"]').text()).toBe('합계 0원');
+    expect(wrapper.get('.recurring-rule-total-label').text()).toBe('합계');
+    expect(wrapper.get('.recurring-rule-total-amount').text()).toBe('0원');
     expect(wrapper.get('[data-testid="open-recurring-rule-add"]').text()).toBe('추가');
   });
 
