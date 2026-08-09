@@ -6,7 +6,8 @@
           <span>반복 고정비</span>
           <h2>고정비 규칙</h2>
         </div>
-        <div class="income-heading-actions">
+        <div class="income-heading-actions recurring-heading-actions">
+          <span class="recurring-rule-total" data-testid="recurring-rule-total">합계 {{ formatWon(activeRecurringTotal) }}</span>
           <button type="button" class="primary-button" data-testid="open-recurring-rule-add" @click="openAddDialog">
             추가
           </button>
@@ -124,6 +125,11 @@ const sortedRecurringRules = computed(() =>
     .map((rule, index) => ({ rule, index }))
     .sort((left, right) => left.rule.dayOfMonth - right.rule.dayOfMonth || left.index - right.index)
     .map(({ rule }) => rule)
+);
+const activeRecurringTotal = computed(() =>
+  store.data.recurringFixedExpenseRules
+    .filter((rule) => rule.active)
+    .reduce((total, rule) => total + rule.amount, 0)
 );
 const recurringDays = Array.from({ length: 31 }, (_, index) => index + 1);
 const dialogOpen = ref(false);

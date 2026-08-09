@@ -235,7 +235,9 @@ describe('App', () => {
     await wrapper.findAll('button').find((button) => button.text() === '고정비')?.trigger('click');
 
     expect(wrapper.get('[aria-selected="true"]').text()).toBe('고정비');
-    expect(wrapper.text()).toContain('고정비 규칙 추가');
+    expect(wrapper.text()).toContain('고정비 규칙');
+    expect(wrapper.get('[data-testid="recurring-rule-total"]').text()).toBe('합계 0원');
+    expect(wrapper.get('[data-testid="open-recurring-rule-add"]').text()).toBe('추가');
   });
 
   test('generates due recurring fixed expenses after loading budget data', async () => {

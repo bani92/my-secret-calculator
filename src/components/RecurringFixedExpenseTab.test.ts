@@ -42,6 +42,21 @@ describe('RecurringFixedExpenseTab', () => {
     expect(wrapper.text()).toContain('예정');
   });
 
+  test('shows active recurring fixed expense total next to the add action', () => {
+    mockedStore.store.data.recurringFixedExpenseRules.push({
+      id: 'rule-paused',
+      dayOfMonth: 10,
+      categoryId: 'fixed',
+      amount: 999999,
+      memo: '중지된 비용',
+      active: false
+    });
+
+    const wrapper = mount(RecurringFixedExpenseTab);
+
+    expect(wrapper.get('[data-testid="recurring-rule-total"]').text()).toBe('합계 40,000원');
+  });
+
   test('sorts recurring fixed expense rules by recurring day', () => {
     mockedStore.store.data.recurringFixedExpenseRules = [
       { id: 'rule-25', dayOfMonth: 25, categoryId: 'fixed', amount: 25000, memo: '25일 비용', active: true },
