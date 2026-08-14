@@ -358,7 +358,7 @@ describe('App', () => {
 
     expect(wrapper.get('[aria-selected="true"]').text()).toBe('입력');
 
-    const incomeInput = wrapper.get<HTMLInputElement>('[aria-label="월 수입"]');
+    const incomeInput = wrapper.get<HTMLInputElement>('[aria-label="총 수입"]');
     await incomeInput.setValue('3000000');
 
     expect(incomeInput.element.value).toBe('3,000,000');
@@ -494,7 +494,7 @@ describe('App', () => {
     expect(wrapper.find('.ledger-entry-side .ledger-entry-actions').exists()).toBe(true);
   });
 
-  test('adds itemized income from the income popup without changing the base income input', async () => {
+  test('adds itemized income from the income popup and updates the total income input', async () => {
     vi.setSystemTime(new Date('2026-07-18T09:00:00.000Z'));
     const wrapper = await mountLoadedApp();
 
@@ -515,7 +515,7 @@ describe('App', () => {
     await wrapper.get('[data-testid="confirm-add-income"]').trigger('click');
     await flushAsyncActions();
 
-    expect((wrapper.get('[data-testid="income-input"]').element as HTMLInputElement).value).toBe('2,800,000');
+    expect((wrapper.get('[data-testid="income-input"]').element as HTMLInputElement).value).toBe('3,100,000');
     expect(wrapper.text()).toContain('3,100,000원');
     expect(wrapper.text()).toContain('+300,000원');
     expect(wrapper.text()).toContain('환급');
@@ -527,6 +527,12 @@ describe('App', () => {
       amount: 300_000,
       memo: '환급'
     });
+
+    await wrapper.get('[data-testid="save-income"]').trigger('click');
+    await flushAsyncActions();
+
+    expect((wrapper.get('[data-testid="income-input"]').element as HTMLInputElement).value).toBe('3,100,000');
+    expect(mockedStores.budgetStore.data.months['2026-07'].income).toBe(2_800_000);
   });
 
   test('shows an empty message when there is no previous-month balance to carry over', async () => {
@@ -555,14 +561,15 @@ describe('App', () => {
 
     expect(wrapper.text()).toContain('전월 남은 돈');
     expect(wrapper.text()).toContain('150,000원');
-    expect(wrapper.text()).toContain('현재 월 수입');
-    expect(wrapper.text()).toContain('반영 후 월 수입');
+    expect(wrapper.text()).toContain('현재 총 수입');
+    expect(wrapper.text()).toContain('반영 후 총 수입');
     expect(wrapper.text()).toContain('2,950,000원');
 
     await wrapper.findAll('button').find((button) => button.text() === '이월하기')?.trigger('click');
     await flushAsyncActions();
 
     expect(wrapper.text()).toContain('2,950,000원');
+    expect((wrapper.get('[data-testid="income-input"]').element as HTMLInputElement).value).toBe('2,950,000');
     expect(wrapper.text()).toContain('2026-06 잔액 이월');
     expect(wrapper.text()).toContain('+150,000원');
     expect(mockedStores.budgetStore.data.months['2026-07'].income).toBe(2_800_000);
@@ -587,7 +594,7 @@ describe('App', () => {
     });
     const wrapper = await mountLoadedApp();
 
-    expect((wrapper.get('[data-testid="income-input"]').element as HTMLInputElement).value).toBe('0');
+    expect((wrapper.get('[data-testid="income-input"]').element as HTMLInputElement).value).toBe('100,000');
 
     await wrapper.get('[data-testid="edit-income-income-id"]').trigger('click');
     expect(wrapper.text()).toContain('수입 수정');
@@ -608,18 +615,20 @@ describe('App', () => {
       amount: 120_000,
       memo: '부업'
     });
+    expect((wrapper.get('[data-testid="income-input"]').element as HTMLInputElement).value).toBe('120,000');
 
     await wrapper.get('[aria-label="수입 삭제"]').trigger('click');
     await flushAsyncActions();
 
     expect(wrapper.text()).not.toContain('부업');
+    expect((wrapper.get('[data-testid="income-input"]').element as HTMLInputElement).value).toBe('0');
     expect(mockedStores.budgetStore.data.incomeRecords).toEqual([]);
   });
 
   test('shows monthly totals on the dashboard tab', async () => {
     const wrapper = await mountLoadedApp();
 
-    await wrapper.get('[aria-label="월 수입"]').setValue('100000');
+    await wrapper.get('[aria-label="총 수입"]').setValue('100000');
     await wrapper.get('[data-testid="save-income"]').trigger('click');
     await flushAsyncActions();
     await wrapper.get('[aria-label="지출 금액"]').setValue('20000');
@@ -637,7 +646,7 @@ describe('App', () => {
     const wrapper = await mountLoadedApp();
 
     await wrapper.get('[aria-label="대상 월"]').setValue('2026-06');
-    await wrapper.get('[aria-label="월 수입"]').setValue('100000');
+    await wrapper.get('[aria-label="총 수입"]').setValue('100000');
     await wrapper.get('[data-testid="save-income"]').trigger('click');
     await flushAsyncActions();
     await wrapper.get('[aria-label="지출 날짜"]').setValue('2026-06-10');
@@ -647,7 +656,7 @@ describe('App', () => {
     await flushAsyncActions();
 
     await wrapper.get('[aria-label="대상 월"]').setValue('2025-04');
-    await wrapper.get('[aria-label="월 수입"]').setValue('50000');
+    await wrapper.get('[aria-label="총 수입"]').setValue('50000');
     await wrapper.get('[data-testid="save-income"]').trigger('click');
     await flushAsyncActions();
     await wrapper.get('[aria-label="지출 날짜"]').setValue('2025-04-02');
@@ -870,7 +879,7 @@ describe('App', () => {
 
     const headings = wrapper.findAll('h2').map((heading) => heading.text());
 
-    expect(headings).toContain('월 수입');
+    expect(headings).toContain('총 수입');
     expect(headings).toContain('일일 지출');
     expect(headings).not.toContain('빠른 기록');
     expect(wrapper.find('.form-panel .section-heading span').exists()).toBe(false);
@@ -918,7 +927,7 @@ describe('App', () => {
     const wrapper = await mountLoadedApp();
     budgetWritesShouldFail = true;
 
-    await wrapper.get('[aria-label="월 수입"]').setValue('100000');
+    await wrapper.get('[aria-label="총 수입"]').setValue('100000');
     await wrapper.get('[data-testid="save-income"]').trigger('click');
     await flushAsyncActions();
 
@@ -928,7 +937,7 @@ describe('App', () => {
   test('shows a persistence failure message when import cannot be saved', async () => {
     const wrapper = await mountLoadedApp();
     const currentMonth = mockedStores.budgetStore.selectedMonth;
-    await wrapper.get('[aria-label="월 수입"]').setValue('100000');
+    await wrapper.get('[aria-label="총 수입"]').setValue('100000');
     await wrapper.get('[data-testid="save-income"]').trigger('click');
     await wrapper.get('[aria-label="지출 금액"]').setValue('10000');
     await wrapper.get('[aria-label="지출 메모"]').setValue('existing lunch');

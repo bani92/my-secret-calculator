@@ -2,7 +2,7 @@
   <section class="workspace-grid">
     <form class="panel form-panel" @submit.prevent="submitExpense" data-testid="expense-form">
       <div class="section-heading income-heading">
-        <h2>월 수입</h2>
+        <h2>총 수입</h2>
         <div class="income-heading-actions">
           <button type="button" class="secondary-button" data-testid="open-carry-over" @click="openCarryOverDialog">
             전월 이월
@@ -27,10 +27,10 @@
 
       <div class="inline-field">
         <label>
-          월 수입
+          총 수입
           <input
             :value="incomeDraft"
-            aria-label="월 수입"
+            aria-label="총 수입"
             data-testid="income-input"
             type="text"
             inputmode="numeric"
@@ -82,7 +82,7 @@
 
     <section class="content-stack">
       <section class="summary-grid" aria-label="이번 달 빠른 요약">
-        <SummaryCard label="월 수입" :value="formatWon(store.monthSummary.income)" />
+        <SummaryCard label="총 수입" :value="formatWon(store.monthSummary.income)" />
         <SummaryCard label="지출" :value="formatWon(store.monthSummary.expenseTotal)" />
         <SummaryCard label="남은 금액" :value="formatWon(store.monthSummary.remaining)" />
       </section>
@@ -164,11 +164,11 @@
             <dd>{{ formatWon(carryOverAmount) }}</dd>
           </div>
           <div>
-            <dt>현재 월 수입</dt>
+            <dt>현재 총 수입</dt>
             <dd>{{ formatWon(store.monthSummary.income) }}</dd>
           </div>
           <div>
-            <dt>반영 후 월 수입</dt>
+            <dt>반영 후 총 수입</dt>
             <dd>{{ formatWon(carryOverPreview) }}</dd>
           </div>
         </dl>
@@ -321,7 +321,8 @@ const props = defineProps<{
 const store = useBudgetStore();
 const today = new Date().toISOString().slice(0, 10);
 const baseIncome = computed(() => store.data.months[store.selectedMonth]?.income ?? 0);
-const incomeDraft = ref(formatMoneyInput(String(baseIncome.value)));
+const extraIncomeTotal = computed(() => store.monthSummary.income - baseIncome.value);
+const incomeDraft = ref(formatMoneyInput(String(store.monthSummary.income)));
 const addIncomeDialogOpen = ref(false);
 const carryOverDialogOpen = ref(false);
 const incomeAdditionDraft = ref('');
@@ -360,9 +361,9 @@ if (props.initialExpenseDate) {
 }
 
 watch(
-  () => store.selectedMonth,
+  () => [store.selectedMonth, store.monthSummary.income] as const,
   () => {
-    incomeDraft.value = formatMoneyInput(String(baseIncome.value));
+    incomeDraft.value = formatMoneyInput(String(store.monthSummary.income));
   }
 );
 
@@ -395,9 +396,10 @@ function updateIncome(event: Event): void {
 
 async function saveIncome(): Promise<void> {
   const nextIncome = parseMoneyInput(incomeDraft.value);
+  const nextBaseIncome = nextIncome - extraIncomeTotal.value;
 
-  await store.setIncome(nextIncome);
-  incomeDraft.value = formatMoneyInput(String(nextIncome));
+  await store.setIncome(nextBaseIncome);
+  incomeDraft.value = formatMoneyInput(String(store.monthSummary.income));
 }
 
 function openCarryOverDialog(): void {
@@ -470,7 +472,7 @@ async function submitExpense(): Promise<void> {
 
   await store.addExpense({ ...expenseForm, amount });
   store.setSelectedMonth(toMonth(expenseForm.date));
-  incomeDraft.value = formatMoneyInput(String(baseIncome.value));
+  incomeDraft.value = formatMoneyInput(String(store.monthSummary.income));
   expenseAmountDraft.value = '';
   expenseForm.memo = '';
 }
